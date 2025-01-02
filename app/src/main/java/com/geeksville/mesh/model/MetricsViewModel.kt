@@ -39,8 +39,9 @@ import com.geeksville.mesh.android.Logging
 import com.geeksville.mesh.database.MeshLogRepository
 import com.geeksville.mesh.database.entity.MeshLog
 import com.geeksville.mesh.model.map.CustomTileSource
-import com.geeksville.mesh.navigation.Route
 import com.geeksville.mesh.repository.datastore.RadioConfigRepository
+import com.geeksville.mesh.service.ServiceAction
+import com.geeksville.mesh.ui.Route
 import com.geeksville.mesh.ui.map.MAP_STYLE_ID
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -66,6 +67,7 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 data class MetricsState(
+    val isLocal: Boolean = false,
     val isManaged: Boolean = true,
     val isFahrenheit: Boolean = false,
     val displayUnits: DisplayUnits = DisplayUnits.METRIC,
@@ -214,6 +216,10 @@ class MetricsViewModel @Inject constructor(
         meshLogRepository.deleteLogs(destNum, PortNum.POSITION_APP_VALUE)
     }
 
+    fun onServiceAction(action: ServiceAction) = viewModelScope.launch {
+        radioConfigRepository.onServiceAction(action)
+    }
+
     private val _state = MutableStateFlow(MetricsState.Empty)
     val state: StateFlow<MetricsState> = _state
 
@@ -224,10 +230,10 @@ class MetricsViewModel @Inject constructor(
 
     init {
         radioConfigRepository.nodeDBbyNum
-            .mapLatest { nodes -> nodes[destNum] }
+            .mapLatest { nodes -> nodes[destNum] to nodes.keys.firstOrNull() }
             .distinctUntilChanged()
-            .onEach { node ->
-                _state.update { state -> state.copy(node = node) }
+            .onEach { (node, ourNode) ->
+                _state.update { state -> state.copy(node = node, isLocal = destNum == ourNode) }
                 node?.user?.hwModel?.let { hwModel ->
                     val deviceHardware = getDeviceHardwareFromHardwareModel(hwModel)
                     deviceHardware?.let {
