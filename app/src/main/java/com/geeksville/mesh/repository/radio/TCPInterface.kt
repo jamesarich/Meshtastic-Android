@@ -17,6 +17,7 @@
 
 package com.geeksville.mesh.repository.radio
 
+import android.net.Uri
 import com.geeksville.mesh.android.Logging
 import com.geeksville.mesh.concurrent.handledLaunch
 import com.geeksville.mesh.util.Exceptions
@@ -42,6 +43,7 @@ class TCPInterface @AssistedInject constructor(
         const val MAX_RETRIES_ALLOWED = Int.MAX_VALUE
         const val MIN_BACKOFF_MILLIS = 1 * 1000L // 1 second
         const val MAX_BACKOFF_MILLIS = 5 * 60 * 1000L // 5 minutes
+        const val DEFAULT_PORT = 4403
     }
 
     private var retryCount = 1
@@ -99,8 +101,14 @@ class TCPInterface @AssistedInject constructor(
 
     // Create a socket to make the connection with the server
     private suspend fun startConnect() = withContext(Dispatchers.IO) {
-        debug("TCP connecting to $address")
-        Socket(InetAddress.getByName(address), 4403).use { socket ->
+        val uri = Uri.parse(address)
+        val port = if (uri.port != -1){
+            uri.port
+        } else {
+            DEFAULT_PORT
+        }
+        debug("TCP connecting to $address on port $port")
+        Socket(InetAddress.getByName(address), port).use { socket ->
             socket.tcpNoDelay = true
             socket.soTimeout = 500
             this@TCPInterface.socket = socket
