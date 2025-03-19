@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="main_tab_messages">Messages</string>
+    <string name="main_tab_users">Users</string>
+    <string name="main_tab_map">Map</string>
+    <string name="main_tab_channel">Kanał</string>
+    <string name="main_tab_settings">Settings</string>
     <string name="node_filter_placeholder">Filtr</string>
     <string name="desc_node_filter_clear">Wyczyść filtr</string>
     <string name="node_filter_include_unknown">Pokaż nierozpoznane</string>
@@ -40,12 +45,19 @@
     <string name="role_client_hidden">Urządzenie, które nadaje tylko wtedy, gdy jest to konieczne w celu zachowania ukrycia lub oszczędzania energii.</string>
     <string name="role_lost_and_found">Nadaje regularnie lokalizację jako wiadomości do głównego kanału, aby pomóc w odzyskaniu urządzenia.</string>
     <string name="role_tak_tracker">Umożliwia automatyczne transmisje TAK PLI i zmniejsza liczbę nadmiarowych transmisji.</string>
+    <string name="role_router_late">Węzeł infrastruktury, który zawsze powtarza pakiety raz, ale tylko po wszystkich innych trybach, zapewniając dodatkowe pokrycie lokalnych klastrów. Widoczne na liście węzłów.</string>
     <string name="rebroadcast_mode_all">Przekazuje ponownie każdy odebrany pakiet, niezależnie od tego, czy został wysłany na nasz prywatny kanał, czy z innej sieci Mesh o tych samych parametrach radia.</string>
     <string name="rebroadcast_mode_all_skip_decoding">To samo zachowanie co ALL, ale pomija dekodowanie pakietów i po prostu je retransmituje. Dostępne tylko w roli REPEATER. Ustawienie tego w innych rolach spowoduje zachowanie jak ALL.</string>
     <string name="rebroadcast_mode_local_only">Ignoruje odebrane pakiety z obcych sieci Mesh, które są otwarte lub których nie można odszyfrować. Retransmituje wiadomość tylko na lokalnych kanałach primary / secondary.</string>
     <string name="rebroadcast_mode_known_only">Ignoruje odebrane pakiety z obcych sieci, podobnie jak LOCAL_ONLY, ale idzie o krok dalej, ignorując również pakiety z węzłów, które nie znajdują się jeszcze na liście znanych węzłów.</string>
     <string name="rebroadcast_mode_none">Dozwolone wyłącznie dla ról SENSOR, TRACKER i TAK_TRACKER. Spowoduje to zablokowanie wszystkich retransmisji, podobnie jak rola CLIENT_MUTE.</string>
     <string name="rebroadcast_mode_core_portnums_only">Ignoruje niestandardowe pakiety (non-standard portnums) takie jak: TAK, RangeTest, PaxCounter, itp. Przekazuje dalej jedynie standardowe pakiety (standard portnums): NodeInfo, Text, Position, Telemetry oraz Routing.</string>
+    <string name="config_device_doubleTapAsButtonPress_summary">Traktuj podwójne dotknięcie na obsługiwanych akcelerometrach jako naciśnięcie przycisku użytkownika.</string>
+    <string name="config_device_disableTripleClick_summary">Wyłącza trzykrotne naciśnięcie przycisku użytkownika, aby włączyć lub wyłączyć GPS.</string>
+    <string name="config_device_ledHeartbeatDisabled_summary">Kontroluje miganie LED na urządzeniu. Dla większości urządzeń będzie to sterować jednym z maksymalnie 4 diod LED, ładowarka i diody GPS nie są sterowane.</string>
+    <string name="config_device_transmitOverLora_summary">Czy oprócz wysyłania do MQTT i PhoneAPI, NeighborInfo powinny być przesłane przez LoRa? Niedostępny na kanale z domyślnym kluczem i nazwą.</string>
+    <string name="config_security_public_key">Klucz publiczny</string>
+    <string name="config_security_private_key">Klucz prywatny</string>
     <string name="channel_name">Nazwa Kanału</string>
     <string name="channel_options">Opcje kanału</string>
     <string name="qr_code">Kod QR</string>
@@ -55,7 +67,7 @@
     <string name="unknown_username">Nieznana nazwa użytkownika</string>
     <string name="send">Wyślij</string>
     <string name="send_text">Wyślij wiadomość</string>
-    <string name="warning_not_paired">Nie sparowałeś jeszcze urządzenia Meshtastic z tym telefonem. Proszę sparować urządzenie i ustawić swoją nazwę użytkownika.\n\nTa aplikacja open-source jest w fazie rozwoju, jeśli znajdziesz problemy, napisz na naszym forum: https://github.com/orgs/meshtastic/discussions\n\nWięcej informacji znajdziesz na naszej stronie internetowej - www.meshtastic.org.</string>
+    <string name="warning_not_paired">You haven\'t yet paired a Meshtastic compatible radio with this phone. Please pair a device and set your username.\n\nThis open-source application is in development, if you find problems please post on our forum: https://github.com/orgs/meshtastic/discussions.\n\nFor more information see our web page - www.meshtastic.org.</string>
     <string name="you">Ty</string>
     <string name="your_name">Twoja nazwa</string>
     <string name="analytics_okay">Anonimowe statystyki użycia i raporty o błędach.</string>
@@ -113,6 +125,7 @@
     <string name="message_reception_state">stan odbioru wiadomości</string>
     <string name="message_delivery_status">Status doręczenia wiadomości</string>
     <string name="meshtastic_messages_notifications">Powiadomienia wiadomości</string>
+    <string name="meshtastic_alerts_notifications">Alert notifications</string>
     <string name="protocol_stress_test">Protokół testu warunków skrajnych</string>
     <string name="firmware_too_old">Wymagana aktualizacja firmware\'u</string>
     <string name="firmware_old">Oprogramowanie układowe radia jest zbyt stare, aby komunikować się z tą aplikacją. Aby uzyskać więcej informacji na ten temat, zobacz <a href="https://meshtastic.org/docs/getting-started/flashing-firmware">nasz przewodnik instalacji oprogramowania układowego</a>.</string>
@@ -266,6 +279,8 @@
     <string name="fair">wystarczający</string>
     <string name="good">dobry</string>
     <string name="none_quality">brak</string>
+    <string name="share_to">Udostępnij…</string>
+    <string name="share_message">Udostępnij wiadomość</string>
     <string name="signal">Sygnał:</string>
     <string name="signal_quality">Jakość sygnału</string>
     <string name="traceroute_log">Historia sprawdzania trasy</string>
@@ -277,4 +292,38 @@
         <item quantity="other">%d skoków</item>
     </plurals>
     <string name="traceroute_diff">Skoki do: %1$d. Skoki od: %2$d</string>
+    <string name="twenty_four_hours">24H</string>
+    <string name="forty_eight_hours">48H</string>
+    <string name="one_week">1W</string>
+    <string name="two_weeks">2W</string>
+    <string name="four_weeks">4W</string>
+    <string name="max">Maks.</string>
+    <string name="unknown_age">Unknown Age</string>
+    <string name="copy">Kopiuj</string>
+    <string name="alert_bell_text">Znak ostrzegawczy!</string>
+    <string name="channel_settings">Channel Settings</string>
+    <string name="samsung_instructions">Samsung Instructions</string>
+    <string name="alerts_dnd_request_title">Enable Critical Alerts to bypass Do Not Disturb</string>
+    <string name="alerts_dnd_request_text"><![CDATA[To allow Critical Alerts while your phone is on Do Not Disturb - enable Override Do Not Disturb for the Alerts channel in the Meshtastic app notification settings.<br/><br/>Samsung users may need to add an exception in system settings before enabling it for the Alerts Channel. <a href="https://www.samsung.com/latin_en/support/mobile-devices/how-to-use-the-do-not-disturb-mode-on-your-galaxy-phone/">Visit Samsung Support for assistance.</a>.]]></string>
+    <string name="critical_alert">Critical Alert!</string>
+    <string name="favorite">Favorite</string>
+    <string name="favorite_add">Add \'%s\' as a favorite node?</string>
+    <string name="favorite_remove">Remove \'%s\' as a favorite node?</string>
+    <string name="power_metrics_log">Power Metrics Log</string>
+    <string name="channel_1">Channel 1</string>
+    <string name="channel_2">Channel 2</string>
+    <string name="channel_3">Channel 3</string>
+    <string name="current">Current</string>
+    <string name="voltage">Voltage</string>
+    <string name="are_you_sure">Are you sure?</string>
+    <string name="router_role_confirmation_text"><![CDATA[I have read the <a href="https://meshtastic.org/docs/configuration/radio/device/#roles">Device Role Documentation</a> and the blog post about <a href="http://meshtastic.org/blog/choosing-the-right-device-role">Choosing The Right Device Role</a>.]]></string>
+    <string name="i_know_what_i_m_doing">I know what I\'m doing.</string>
+    <string name="low_battery_message">Node %s has a low battery (%d%%)</string>
+    <string name="meshtastic_low_battery_notifications">Low battery notifications</string>
+    <string name="low_battery_title">Low battery: %s</string>
+    <string name="meshtastic_low_battery_temporary_remote_notifications">Low battery notifications (favorite nodes)</string>
+    <string name="baro_pressure">Barometric Pressure</string>
+    <string name="mesh_via_udp_enabled">Mesh via UDP enabled</string>
+    <string name="udp_config">UDP Config</string>
+    <string name="map_node_popup_details"><![CDATA[%s<br>Last heard: %s<br>Last position: %s<br>Battery: %s]]></string>
 </resources>
