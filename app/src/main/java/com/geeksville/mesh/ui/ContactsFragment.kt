@@ -27,8 +27,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.view.ActionMode
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -42,8 +42,8 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.geeksville.mesh.android.Logging
 import com.geeksville.mesh.R
+import com.geeksville.mesh.android.Logging
 import com.geeksville.mesh.model.Contact
 import com.geeksville.mesh.model.UIViewModel
 import com.geeksville.mesh.ui.message.navigateToMessages
@@ -216,6 +216,7 @@ class ContactsFragment : ScreenFragment("Messages"), Logging {
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 fun ContactListView(
     contacts: List<Contact>,
@@ -223,24 +224,66 @@ fun ContactListView(
     onClick: (Contact) -> Unit,
     onLongClick: (Contact) -> Unit,
 ) {
+    val primaryChannels = contacts.filter { it.contactKey.contains("0^all") }
+    val secondaryChannels =
+        contacts.filter { !it.contactKey.contains("0^all") && it.contactKey.contains("^all") }
+    val otherContacts = contacts.filter { !it.contactKey.contains("^all") }
     val haptics = LocalHapticFeedback.current
     LazyColumn(
         modifier = Modifier
             .fillMaxSize(),
         contentPadding = PaddingValues(6.dp),
     ) {
-        items(contacts, key = { it.contactKey }) { contact ->
-            val selected by remember { derivedStateOf { selectedList.contains(contact.contactKey) } }
-
-            ContactItem(
-                contact = contact,
-                selected = selected,
-                onClick = { onClick(contact) },
-                onLongClick = {
-                    onLongClick(contact)
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                },
-            )
+        if (primaryChannels.isNotEmpty()) {
+            item {
+                ContactHeaderItem(text = "Primary Channels")
+            }
+            items(primaryChannels, key = { it.contactKey }) { contact ->
+                val selected by remember { derivedStateOf { selectedList.contains(contact.contactKey) } }
+                ContactItem(
+                    contact = contact,
+                    selected = selected,
+                    onClick = { onClick(contact) },
+                    onLongClick = {
+                        onLongClick(contact)
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    },
+                )
+            }
+        }
+        if (secondaryChannels.isNotEmpty()) {
+            item {
+                ContactHeaderItem(text = "Secondary Channels")
+            }
+            items(secondaryChannels, key = { it.contactKey }) { contact ->
+                val selected by remember { derivedStateOf { selectedList.contains(contact.contactKey) } }
+                ContactItem(
+                    contact = contact,
+                    selected = selected,
+                    onClick = { onClick(contact) },
+                    onLongClick = {
+                        onLongClick(contact)
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    },
+                )
+            }
+        }
+        if (otherContacts.isNotEmpty()) {
+            item {
+                ContactHeaderItem(text = "Other Contacts")
+            }
+            items(otherContacts, key = { it.contactKey }) { contact ->
+                val selected by remember { derivedStateOf { selectedList.contains(contact.contactKey) } }
+                ContactItem(
+                    contact = contact,
+                    selected = selected,
+                    onClick = { onClick(contact) },
+                    onLongClick = {
+                        onLongClick(contact)
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    },
+                )
+            }
         }
     }
 }

@@ -151,6 +151,21 @@ fun ContactItem(
     }
 }
 
+@Composable
+fun ContactHeaderItem(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = text,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        fontSize = MaterialTheme.typography.h6.fontSize,
+        fontWeight = FontWeight.Bold,
+    )
+}
+
 @PreviewLightDark
 @Composable
 private fun ContactItemPreview() {
