@@ -163,6 +163,7 @@ fun ContactHeaderItem(
             .padding(horizontal = 8.dp, vertical = 6.dp),
         fontSize = MaterialTheme.typography.h6.fontSize,
         fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colors.primary,
     )
 }
 
@@ -170,18 +171,23 @@ fun ContactHeaderItem(
 @Composable
 private fun ContactItemPreview() {
     AppTheme {
-        ContactItem(
-            contact = Contact(
-                contactKey = "0^all",
-                shortName = stringResource(R.string.some_username),
-                longName = stringResource(R.string.unknown_username),
-                lastMessageTime = "3 minutes ago",
-                lastMessageText = stringResource(R.string.sample_message),
-                unreadCount = 2,
-                messageCount = 10,
-                isMuted = true,
-            ),
-            selected = false,
-        )
+        Column {
+            ContactHeaderItem(
+                text = "Primary Channels",
+            )
+            ContactItem(
+                contact = Contact(
+                    contactKey = "0^all",
+                    shortName = stringResource(R.string.some_username),
+                    longName = stringResource(R.string.unknown_username),
+                    lastMessageTime = "3 minutes ago",
+                    lastMessageText = stringResource(R.string.sample_message),
+                    unreadCount = 2,
+                    messageCount = 10,
+                    isMuted = true,
+                ),
+                selected = false,
+            )
+        }
     }
 }
