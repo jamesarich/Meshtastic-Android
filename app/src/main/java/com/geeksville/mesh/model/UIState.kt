@@ -55,6 +55,7 @@ import com.geeksville.mesh.database.QuickChatActionRepository
 import com.geeksville.mesh.database.entity.MyNodeEntity
 import com.geeksville.mesh.database.entity.Packet
 import com.geeksville.mesh.database.entity.QuickChatAction
+import com.geeksville.mesh.repository.api.DeviceRegistrationRepository
 import com.geeksville.mesh.repository.datastore.RadioConfigRepository
 import com.geeksville.mesh.repository.location.LocationRepository
 import com.geeksville.mesh.repository.radio.RadioInterfaceService
@@ -77,6 +78,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -183,6 +185,7 @@ class UIViewModel @Inject constructor(
     private val packetRepository: PacketRepository,
     private val quickChatActionRepository: QuickChatActionRepository,
     private val locationRepository: LocationRepository,
+    private val deviceRegistrationRepository: DeviceRegistrationRepository,
     private val preferences: SharedPreferences
 ) : ViewModel(), Logging {
 
@@ -828,4 +831,11 @@ class UIViewModel @Inject constructor(
     fun setNodeFilterText(text: String) {
         nodeFilterText.value = text
     }
+
+    val isDeviceRegistered: StateFlow<Boolean> = myNodeInfo.mapNotNull { node ->
+        val deviceId = node?.deviceId
+        deviceId?.let {
+            deviceRegistrationRepository.isDeviceRegistered(it)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), false)
 }
