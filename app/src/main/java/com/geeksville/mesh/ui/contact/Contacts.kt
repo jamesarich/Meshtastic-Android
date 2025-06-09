@@ -58,9 +58,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.geeksville.mesh.ChannelProtos
+import com.geeksville.mesh.DataPacket
 import com.geeksville.mesh.R
+import com.geeksville.mesh.copy
 import com.geeksville.mesh.model.Contact
 import com.geeksville.mesh.model.UIViewModel
+import com.geeksville.mesh.moduleSettings
 import java.util.concurrent.TimeUnit
 
 @Suppress("LongMethod")
@@ -154,12 +158,24 @@ fun ContactsScreen(
             selectedContactKeys.clear()
         }
     )
-
     MuteNotificationsDialog(
         showDialog = showMuteDialog,
         onDismiss = { showMuteDialog = false },
         onConfirm = { muteUntil ->
             showMuteDialog = false
+            val currentChannels = uiViewModel.channels.value.settingsList
+            val updatedChannels = currentChannels.mapIndexed { index, settings ->
+                if (selectedContactKeys.contains("$index${DataPacket.ID_BROADCAST}")) {
+                    settings.copy {
+                        moduleSettings = moduleSettings {
+                            isClientMuted = true
+                        }
+                    }
+                } else {
+                    settings
+                }
+            }
+            uiViewModel.setChannels(updatedChannels)
             uiViewModel.setMuteUntil(selectedContactKeys.toList(), muteUntil)
             selectedContactKeys.clear()
         }

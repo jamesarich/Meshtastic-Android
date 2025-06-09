@@ -687,7 +687,7 @@ class UIViewModel @Inject constructor(
     /**
      * Set the radio config (also updates our saved copy in preferences).
      */
-    fun setChannels(channelSet: AppOnlyProtos.ChannelSet) = viewModelScope.launch {
+    fun setChannels(channelSet: List<ChannelSettings>) = viewModelScope.launch {
         getChannelList(channelSet.settingsList, channels.value.settingsList).forEach(::setChannel)
         radioConfigRepository.replaceAllSettings(channelSet.settingsList)
 
