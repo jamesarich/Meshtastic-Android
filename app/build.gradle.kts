@@ -176,7 +176,8 @@ androidComponents {
 }
 
 dependencies {
-    implementation(project(":network"))
+    implementation(projects.network)
+    implementation(projects.shared)
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
 
     // Bundles

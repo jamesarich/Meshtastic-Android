@@ -15,6 +15,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-include(":app", ":network", ":shared", ":mesh_service_example")
-rootProject.name = "MeshtasticAndroid"
-enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+package com.geeksvile.mesh.shared
+
+expect fun platform(): String

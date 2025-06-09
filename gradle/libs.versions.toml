@@ -47,6 +47,11 @@ viewpager2 = "1.1.0"
 work-runtime-ktx = "2.10.1"
 zxing-android-embedded = "4.3.0"
 zxing-core = "3.5.3"
+agp-version = "8.10.1"
+kotlin-stdlib = "2.1.21"
+kotlin-test = "2.1.21"
+runner = "1.6.2"
+core = "1.6.1"
 
 [libraries]
 agp = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
@@ -132,6 +137,10 @@ viewpager2 = { group = "androidx.viewpager2", name = "viewpager2", version.ref =
 work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work-runtime-ktx" }
 zxing-android-embedded = { group = "com.journeyapps", name = "zxing-android-embedded", version.ref = "zxing-android-embedded" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing-core" }
+kotlin-stdlib = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib", version.ref = "kotlin-stdlib" }
+kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test", version.ref = "kotlin-test" }
+runner = { group = "androidx.test", name = "runner", version.ref = "runner" }
+core = { group = "androidx.test", name = "core", version.ref = "core" }
 
 [bundles]
 # Core AndroidX
@@ -194,3 +203,6 @@ protobuf = { id = "com.google.protobuf" }
 android-library = { id = "com.android.library" }
 google-services = { id = "com.google.gms.google-services" }
 firebase-crashlytics = { id = "com.google.firebase.crashlytics" }
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform"}
+android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library" }
+android-lint = { id = "com.android.lint" }

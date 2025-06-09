@@ -15,6 +15,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-include(":app", ":network", ":shared", ":mesh_service_example")
-rootProject.name = "MeshtasticAndroid"
-enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+package com.geeksvile.mesh.shared
+
+import kotlin.test.Test
+import kotlin.test.assertEquals
+
+/**
+ * Example local unit test, which will execute on the development machine (host).
+ *
+ * See [testing documentation](http://d.android.com/tools/testing).
+ */
+class ExampleUnitTest {
+    @Test
+    fun addition_isCorrect() {
+        assertEquals(4, 2 + 2)
+    }
+}
