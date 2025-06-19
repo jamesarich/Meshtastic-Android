@@ -178,13 +178,17 @@ class BluetoothInterface @AssistedInject constructor(
                     try {
                         r.getOrThrow()
                         debug("write of ${p.size} bytes to $uuid completed")
-
-                        if (isFirstSend) {
-                            isFirstSend = false
-                            doReadFromRadio(false)
-                        }
                     } catch (ex: Exception) {
                         scheduleReconnect("error during asyncWriteCharacteristic - disconnecting, ${ex.message}")
+                    } finally {
+                        // Even if the write failed, if this was the first send, we still want to try to read
+                        // This is because the initial config messages often cause the radio to immediately send responses
+                        // and we don't want to wait for FromNum notifications
+                        if (isFirstSend) {
+                            isFirstSend = false
+                            // Add a small delay before reading from the radio to allow the device to process the write
+                            service.serviceScope.handledLaunch { delay(200); doReadFromRadio(false) }
+                        }
                     }
                 }
             }

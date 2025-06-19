@@ -232,6 +232,9 @@ class MeshService : Service(), Logging {
     private val batteryPercentCooldownSeconds = 1500
     private val batteryPercentCooldowns: HashMap<Int, Long> = HashMap()
 
+    private val nonceOnlyConfig = 69420
+    private val nonceOnlyDB = 69421
+
     private fun getSenderName(packet: DataPacket?): String {
         val name = nodeDBbyID[packet?.from]?.user?.longName
         return name ?: getString(R.string.unknown_username)
@@ -1385,6 +1388,7 @@ class MeshService : Service(), Logging {
             // Do our startup init
             try {
                 connectTimeMsec = System.currentTimeMillis()
+                configNonce = nonceOnlyConfig
                 startConfig()
             } catch (ex: InvalidProtocolBufferException) {
                 errormsg(
@@ -1496,8 +1500,6 @@ class MeshService : Service(), Logging {
     // A provisional MyNodeInfo that we will install if all of our node config downloads go okay
     private var newMyNodeInfo: MyNodeEntity? = null
 
-    // provisional NodeInfos we will install if all goes well
-    private val newNodes = mutableListOf<MeshProtos.NodeInfo>()
 
     // Used to make sure we never get foold by old BLE packets
     private var configNonce = 1
@@ -1613,8 +1615,9 @@ class MeshService : Service(), Logging {
         )
         insertMeshLog(packetToSave)
 
-        newNodes.add(info)
-        radioConfigRepository.setStatusMessage("Nodes (${newNodes.size})")
+            installNodeInfo(info)
+            onNodeDBChanged()
+            haveNodeDB = true
     }
 
     private var rawMyNodeInfo: MeshProtos.MyNodeInfo? = null
@@ -1643,10 +1646,12 @@ class MeshService : Service(), Logging {
                     deviceId = deviceId.toStringUtf8(),
                 )
             }
-            serviceScope.handledLaunch {
-                radioConfigRepository.insertMetadata(mi.myNodeNum, metadata)
+            if ((configNonce == nonceOnlyConfig) && !haveNodeDB) {
+                myNodeInfo = mi
+                serviceScope.handledLaunch {
+                    radioConfigRepository.insertMetadata(mi.myNodeNum, metadata)
+                }
             }
-            newMyNodeInfo = mi
         }
     }
 
@@ -1759,12 +1764,11 @@ class MeshService : Service(), Logging {
 
         // broadcast an intent with our new connection state
         serviceBroadcasts.broadcastConnection()
-        onNodeDBChanged()
         reportConnection()
     }
 
     private fun handleConfigComplete(configCompleteId: Int) {
-        if (configCompleteId == configNonce) {
+        if (configCompleteId == nonceOnlyConfig) {
 
             val packetToSave = MeshLog(
                 uuid = UUID.randomUUID().toString(),
@@ -1776,15 +1780,10 @@ class MeshService : Service(), Logging {
             insertMeshLog(packetToSave)
 
             // This was our config request
-            if (newMyNodeInfo == null || newNodes.isEmpty()) {
+            if (myNodeInfo == null) {
                 errormsg("Did not receive a valid config")
             } else {
                 discardNodeDB()
-                debug("Installing new node DB")
-                myNodeInfo = newMyNodeInfo
-
-                newNodes.forEach(::installNodeInfo)
-                newNodes.clear() // Just to save RAM ;-)
 
                 serviceScope.handledLaunch {
                     radioConfigRepository.installNodeDB(
@@ -1792,8 +1791,6 @@ class MeshService : Service(), Logging {
                         nodeDBbyNodeNum.values.toList()
                     )
                 }
-
-                haveNodeDB = true // we now have nodes from real hardware
 
                 sendToRadio(newMeshPacketTo(myNodeNum).buildAdminPacket {
                     setTimeOnly = currentSecond()
@@ -1807,9 +1804,20 @@ class MeshService : Service(), Logging {
                     })
                 }
                 onHasSettings()
+                configNonce = nonceOnlyDB
+                startConfig()
             }
-        } else {
-            warn("Ignoring stale config complete")
+        } else if (configCompleteId == nonceOnlyDB) {
+            if (myNodeInfo != null) {
+                debug("Installing new node DB")
+
+                serviceScope.handledLaunch {
+                    radioConfigRepository.installNodeDB(
+                        myNodeInfo!!,
+                        nodeDBbyNodeNum.values.toList()
+                    )
+                }
+            }
         }
     }
 
@@ -1817,15 +1825,15 @@ class MeshService : Service(), Logging {
      * Start the modern (REV2) API configuration flow
      */
     private fun startConfig() {
-        configNonce += 1
-        newNodes.clear()
         newMyNodeInfo = null
 
         debug("Starting config nonce=$configNonce")
 
         sendToRadio(ToRadio.newBuilder().apply {
-            this.wantConfigId = configNonce
+            heartbeat = MeshProtos.Heartbeat.newBuilder().build()
         })
+        // After 0.2 secs, then ask for config
+        serviceScope.handledLaunch { delay(200); sendToRadio(ToRadio.newBuilder().apply { wantConfigId = configNonce }) }
     }
 
     /**
