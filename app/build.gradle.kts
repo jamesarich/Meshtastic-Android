@@ -54,7 +54,8 @@ android {
         targetSdk = Configs.TARGET_SDK
         versionCode =
             Configs.VERSION_CODE // format is Mmmss (where M is 1+the numeric major number)
-        versionName = Configs.VERSION_NAME
+        // versionName will be set per build type
+        versionName = Configs.BASE_VERSION_NAME // Default version name
         testInstrumentationRunner = "com.geeksville.mesh.TestRunner"
         buildConfigField("String", "MIN_FW_VERSION", "\"${Configs.MIN_FW_VERSION}\"")
         buildConfigField("String", "ABS_MIN_FW_VERSION", "\"${Configs.ABS_MIN_FW_VERSION}\"")
@@ -89,9 +90,45 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Release builds typically don't have a suffix for version name or application ID
+            versionName = Configs.BASE_VERSION_NAME
         }
         named("debug") {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            versionName = Configs.BASE_VERSION_NAME + versionNameSuffix
             isPseudoLocalesEnabled = true
+            isMinifyEnabled = false // Typically false for debug builds
+            isJniDebuggable = true // Enable JNI debugging
+            isRenderscriptDebuggable = true // Enable Renderscript debugging
+        }
+        create("nightly") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".nightly"
+            versionNameSuffix = "-nightly"
+            versionName = Configs.BASE_VERSION_NAME + versionNameSuffix
+            // Specific nightly configurations can go here
+        }
+        create("alpha") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".alpha"
+            versionNameSuffix = "-alpha"
+            versionName = Configs.BASE_VERSION_NAME + versionNameSuffix
+            // Specific alpha configurations can go here
+        }
+        create("beta") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".beta"
+            versionNameSuffix = "-beta"
+            versionName = Configs.BASE_VERSION_NAME + versionNameSuffix
+            // Specific beta configurations can go here
+        }
+        create("rc") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".rc"
+            versionNameSuffix = "-rc"
+            versionName = Configs.BASE_VERSION_NAME + versionNameSuffix
+            // Specific release candidate configurations can go here
         }
     }
     defaultConfig {

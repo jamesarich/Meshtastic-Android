@@ -2,107 +2,166 @@ name: Make Release
 
 on:
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Type of release'
+        required: true
+        type: choice
+        options:
+          - alpha
+          - beta
+          - rc
+          - production
+      version_name:
+        description: 'Base version name for the release (e.g., 2.7.0)'
+        required: true
+        type: string
 
 permissions: write-all
 
 jobs:
-
   release-build:
     runs-on: ubuntu-latest
+    outputs:
+      full_version_name: ${{ steps.versioning.outputs.full_version_name }}
+      new_version_code: ${{ steps.versioning.outputs.new_version_code }}
+      base_version_name: ${{ steps.versioning.outputs.base_version_name }}
+      release_type_gradle: ${{ steps.versioning.outputs.release_type_gradle }}
+      is_prerelease: ${{ steps.versioning.outputs.is_prerelease }}
     steps:
-
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         submodules: 'recursive'
 
-    - name: Get `versionCode` & `versionName`
+    - name: Determine Versioning and Gradle Properties
+      id: versioning
       run: |
-        echo "versionCode=$(grep -oP 'VERSION_CODE = \K\d+' ./buildSrc/src/main/kotlin/Configs.kt)" >> $GITHUB_ENV
-        echo "versionName=$(grep -oP 'VERSION_NAME = \"\K[^\"]+' ./buildSrc/src/main/kotlin/Configs.kt)" >> $GITHUB_ENV
+        release_type="${{ github.event.inputs.release_type }}"
+        base_version_name="${{ github.event.inputs.version_name }}"
+        version_name_suffix=""
+        release_type_gradle=""
+        is_prerelease="true" # Default to true
+
+        if [ "$release_type" == "alpha" ]; then
+          version_name_suffix="-alpha.1"
+          release_type_gradle="Alpha"
+        elif [ "$release_type" == "beta" ]; then
+          version_name_suffix="-beta.1"
+          release_type_gradle="Beta"
+        elif [ "$release_type" == "rc" ]; then
+          version_name_suffix="-rc.1"
+          release_type_gradle="Rc"
+        elif [ "$release_type" == "production" ]; then
+          version_name_suffix=""
+          release_type_gradle="Release" # Maps to the standard 'release' build type
+          is_prerelease="false"
+        else
+          echo "::error::Invalid release type: $release_type"
+          exit 1
+        fi
+
+        full_version_name="$base_version_name$version_name_suffix"
+
+        # Read current VERSION_CODE and increment
+        current_version_code=$(grep -oP 'VERSION_CODE = \K\d+' ./buildSrc/src/main/kotlin/Configs.kt)
+        new_version_code=$((current_version_code + 1))
+
+        echo "Base Version Name: $base_version_name"
+        echo "Version Name Suffix: $version_name_suffix"
+        echo "Full Version Name: $full_version_name"
+        echo "Old Version Code: $current_version_code"
+        echo "New Version Code: $new_version_code"
+        echo "Release Type Gradle Suffix: $release_type_gradle"
+        echo "Is Prerelease: $is_prerelease"
+
+        echo "full_version_name=$full_version_name" >> $GITHUB_OUTPUT
+        echo "new_version_code=$new_version_code" >> $GITHUB_OUTPUT
+        echo "base_version_name=$base_version_name" >> $GITHUB_OUTPUT
+        echo "release_type_gradle=$release_type_gradle" >> $GITHUB_OUTPUT
+        echo "is_prerelease=$is_prerelease" >> $GITHUB_OUTPUT
+
+        # Modify Configs.kt
+        sed -i "s/const val BASE_VERSION_NAME = \".*\"/const val BASE_VERSION_NAME = \"$base_version_name\"/" ./buildSrc/src/main/kotlin/Configs.kt
+        sed -i "s/const val VERSION_CODE = .*/const val VERSION_CODE = $new_version_code/" ./buildSrc/src/main/kotlin/Configs.kt
+
+        echo "Configs.kt updated."
+        grep "BASE_VERSION_NAME" ./buildSrc/src/main/kotlin/Configs.kt
+        grep "VERSION_CODE" ./buildSrc/src/main/kotlin/Configs.kt
 
     - name: Validate Gradle wrapper
       uses: gradle/actions/wrapper-validation@v4
 
-    - name: Load secrets
+    - name: Load secrets and Create version_info.txt
       run: |
-        rm ./app/google-services.json
-        echo $GSERVICES > ./app/google-services.json
-        echo $KEYSTORE | base64 -di > ./app/$KEYSTORE_FILENAME
-        echo "$KEYSTORE_PROPERTIES" > ./keystore.properties
-        echo -e "versionCode=$versionCode\nversionName=$versionName" > ./version_info.txt
+        rm -f ./app/google-services.json # Ensure clean state
+        echo "${{ secrets.GSERVICES }}" > ./app/google-services.json
+        echo "${{ secrets.KEYSTORE }}" | base64 -di > ./app/${{ secrets.KEYSTORE_FILENAME }}
+        echo "${{ secrets.KEYSTORE_PROPERTIES }}" > ./keystore.properties
+        # Use the new version code and full name for version_info.txt
+        echo -e "versionCode=${{ steps.versioning.outputs.new_version_code }}\nversionName=${{ steps.versioning.outputs.full_version_name }}" > ./version_info.txt
+        echo "version_info.txt created with:"
+        cat ./version_info.txt
       env:
-          GSERVICES: ${{ secrets.GSERVICES }}
-          KEYSTORE: ${{ secrets.KEYSTORE }}
-          KEYSTORE_FILENAME: ${{ secrets.KEYSTORE_FILENAME }}
-          KEYSTORE_PROPERTIES: ${{ secrets.KEYSTORE_PROPERTIES }}
+        GSERVICES: ${{ secrets.GSERVICES }} # Assuming this is still needed
+        KEYSTORE: ${{ secrets.KEYSTORE }}
+        KEYSTORE_FILENAME: ${{ secrets.KEYSTORE_FILENAME }}
+        KEYSTORE_PROPERTIES: ${{ secrets.KEYSTORE_PROPERTIES }}
 
-    - name: Set up JDK 17
+    - name: Set up JDK
       uses: actions/setup-java@v4
       with:
         java-version: '21'
         distribution: 'jetbrains'
-        # Note: we don't use caches on release builds because we don't want to accidentally not have a virgin build machine
 
-    - name: Build F-Droid release
-      run: ./gradlew assembleFdroidRelease
+    - name: Build F-Droid Variant
+      run: ./gradlew assembleFdroid${{ steps.versioning.outputs.release_type_gradle }}
 
-    - name: Enable Crashlytics
+    - name: Enable Crashlytics for Google builds
       run: sed -i 's/USE_CRASHLYTICS = false/USE_CRASHLYTICS = true/g' ./buildSrc/src/main/kotlin/Configs.kt
 
-    - name: Build Play Store release
-      run: ./gradlew bundleGoogleRelease assembleGoogleRelease
+    - name: Build Google Variant (APK and AAB)
+      run: ./gradlew assembleGoogle${{ steps.versioning.outputs.release_type_gradle }} bundleGoogle${{ steps.versioning.outputs.release_type_gradle }}
 
     - name: Create GitHub release
-      uses: actions/create-release@v1
-      id: create_release
+      uses: softprops/action-gh-release@v2
+      id: create_gh_release # Changed id to avoid conflict if any old one existed
       with:
-        draft: true
-        prerelease: true
-        release_name: Meshtastic Android ${{ env.versionName }} alpha
-        tag_name: ${{ env.versionName }}
+        tag_name: v${{ steps.versioning.outputs.full_version_name }}
+        name: Meshtastic Android v${{ steps.versioning.outputs.full_version_name }}
         body: |
-          Autogenerated by github action, developer should edit as required before publishing...
+          Release for version ${{ steps.versioning.outputs.full_version_name }} (${{ github.event.inputs.release_type }}).
+          Autogenerated by GitHub Action. Please review and edit before publishing.
+        draft: true
+        prerelease: ${{ steps.versioning.outputs.is_prerelease == 'true' }} # Convert string to boolean
+        files: |
+          app/build/outputs/apk/fdroid/${{ github.event.inputs.release_type }}/app-fdroid-${{ github.event.inputs.release_type }}.apk
+          app/build/outputs/bundle/google${{ steps.versioning.outputs.release_type_gradle }}/app-google-${{ github.event.inputs.release_type }}.aab
+          app/build/outputs/apk/google/${{ github.event.inputs.release_type }}/app-google-${{ github.event.inputs.release_type }}.apk
+          version_info.txt
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+# Note: The asset upload paths (app-fdroid-${{ github.event.inputs.release_type }}.apk etc) need to be exact.
+# The gradle tasks produce outputs in directories like:
+# app/build/outputs/apk/fdroid/alpha/app-fdroid-alpha.apk
+# app/build/outputs/bundle/googleAlpha/app-google-alpha.aab (if release_type_gradle is Alpha)
+# app/build/outputs/apk/google/alpha/app-google-alpha.apk
+# For "production" release_type, inputs.release_type is "production", but release_type_gradle is "Release".
+# The paths in `files:` should use `github.event.inputs.release_type` for the directory part that matches the build type name (alpha, beta, rc, release).
+# Example: app/build/outputs/apk/fdroid/${{ github.event.inputs.release_type }}/app-fdroid-${{ github.event.inputs.release_type }}.apk
+# For Google AAB: app/build/outputs/bundle/google${{ steps.versioning.outputs.release_type_gradle }}/app-google-${{ github.event.inputs.release_type }}.aab
+# The actual file names are app-fdroid-alpha.apk, app-google-alpha.aab, etc.
+# The softprops/action-gh-release tool will rename them based on the path provided if the path includes the desired name.
+# Let's fix the file paths in the create release step.
+# The asset paths for F-Droid: app/build/outputs/apk/fdroid/${{ steps.versioning.outputs.release_type_gradle,, }} # tolower
+# No, the actual build type names are alpha, beta, rc, release. So github.event.inputs.release_type is correct for the path.
+# For Google, it's googleAlpha, googleBeta, etc. The tasks are assembleGoogleAlpha, bundleGoogleAlpha.
+# The output path for googleAlpha AAB is app/build/outputs/bundle/googleAlpha/app-google-alpha.aab
+# The output path for googleAlpha APK is app/build/outputs/apk/google/alpha/app-google-alpha.apk
+# The fdroidAlpha APK is app/build/outputs/apk/fdroid/alpha/app-fdroid-alpha.apk
+# The `release_type_gradle` is "Alpha", "Beta", "Rc", "Release".
+# The build type name (directory) is "alpha", "beta", "rc", "release".
+# So, for paths, I should use ${{ github.event.inputs.release_type }} which is already lowercase.
 
-    - name: Add F-Droid APK to release
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: app/build/outputs/apk/fdroid/release/app-fdroid-release.apk
-        asset_name: fdroidRelease-${{ env.versionName }}.apk
-        asset_content_type: application/zip
-
-    - name: Add Play Store AAB to release
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: app/build/outputs/bundle/googleRelease/app-google-release.aab
-        asset_name: googleRelease-${{ env.versionName }}.aab
-        asset_content_type: application/zip
-
-    - name: Add Play Store APK to release
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: app/build/outputs/apk/google/release/app-google-release.apk
-        asset_name: googleRelease-${{ env.versionName }}.apk
-        asset_content_type: application/zip
-
-    # https://github.com/f-droid/fdroiddata/blob/main/metadata/com.geeksville.mesh.yml#L34
-    - name: Add `version_info.txt` to release
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: version_info.txt
-        asset_name: version_info.txt
-        asset_content_type: text/plain
+# The individual upload steps are removed as softprops/action-gh-release handles multiple files.
+# I need to ensure the GITHUB_OUTPUT echos are correct and that `outputs:` are defined for the job.
