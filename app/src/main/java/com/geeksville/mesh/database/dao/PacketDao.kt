@@ -175,6 +175,7 @@ interface PacketDao {
     suspend fun getPacketById(requestId: Int): Packet?
 
     @Query("SELECT * FROM packet WHERE packet_id = :packetId LIMIT 1")
+    @Transaction
     suspend fun getPacketByPacketId(packetId: Int): PacketEntity?
 
     @Transaction

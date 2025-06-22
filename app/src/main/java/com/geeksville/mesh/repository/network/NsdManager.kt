@@ -26,8 +26,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executor
 import kotlin.coroutines.resume
 
 internal fun NsdManager.serviceList(
@@ -94,14 +97,42 @@ private fun NsdManager.discoverServices(
 private suspend fun NsdManager.resolveService(
     serviceInfo: NsdServiceInfo,
 ): NsdServiceInfo? = suspendCancellableCoroutine { continuation ->
-    val listener = object : NsdManager.ResolveListener {
-        override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
-            continuation.resume(null)
+    val executor: Executor = Dispatchers.IO.asExecutor()
+
+    val serviceInfoCallback = object : NsdManager.ServiceInfoCallback {
+        override fun onServiceResolved(resolvedServiceInfo: NsdServiceInfo) {
+            if (continuation.isActive) {
+                continuation.resume(resolvedServiceInfo)
+            }
         }
 
-        override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
-            continuation.resume(serviceInfo)
+        override fun onServiceInfoCallbackRegistrationFailed(errorCode: Int) {
+            if (continuation.isActive) {
+                continuation.resume(null)
+            }
+        }
+
+        override fun onUnregister() {
+            // Called when this callback is unregistered.
+            // May not need explicit handling here if cancellation handles all cleanup.
         }
     }
-    resolveService(serviceInfo, listener)
+
+    try {
+        this.resolveService(serviceInfo, executor, serviceInfoCallback)
+    } catch (ex: Exception) {
+        // Catch potential exceptions during registration itself
+        if (continuation.isActive) {
+            continuation.resume(null) // or handle error appropriately
+        }
+        return@suspendCancellableCoroutine
+    }
+
+    continuation.invokeOnCancellation {
+        try {
+            this.unregisterServiceCallback(serviceInfoCallback)
+        } catch (ex: IllegalArgumentException) {
+            // Ignore: Can happen if already unregistered or registration failed.
+        }
+    }
 }

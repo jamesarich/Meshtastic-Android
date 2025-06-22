@@ -741,6 +741,7 @@ class UIViewModel @Inject constructor(
     }
 
     // managed mode disables all access to configuration
+    @Suppress("DEPRECATION") // Suppress warning for isManaged from protobuf
     val isManaged: Boolean get() = config.device.isManaged || config.security.isManaged
 
     val myNodeNum get() = myNodeInfo.value?.myNodeNum

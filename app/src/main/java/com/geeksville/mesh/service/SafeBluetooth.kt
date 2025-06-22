@@ -247,6 +247,7 @@ class SafeBluetooth(private val context: Context, private val device: BluetoothD
         ) {
             val reliable = currentReliableWrite
             if (reliable != null)
+                @Suppress("DEPRECATION") // Accessing characteristic.value is deprecated
                 if (!characteristic.value.contentEquals(reliable)) {
                     errormsg("A reliable write failed!")
                     gatt.abortReliableWrite()
@@ -676,8 +677,9 @@ class SafeBluetooth(private val context: Context, private val device: BluetoothD
         cont: Continuation<BluetoothGattCharacteristic>, timeout: Long = 0
     ) = queueWork("writeC ${c.uuid}", cont, timeout) {
         currentReliableWrite = null
-        c.value = v
-        gatt?.writeCharacteristic(c) ?: false
+        @Suppress("DEPRECATION") // c.value setter maps to setValue(), not deprecated
+        c.value = v // Keep this to ensure 'c' reflects the value written, for external inspection.
+        gatt?.writeCharacteristic(c, v, c.writeType) ?: false
     }
 
     fun asyncWriteCharacteristic(
@@ -701,8 +703,24 @@ class SafeBluetooth(private val context: Context, private val device: BluetoothD
         cont: Continuation<Unit>, timeout: Long = 0
     ) = queueWork("rwriteC ${c.uuid}", cont, timeout) {
         logAssert(gatt!!.beginReliableWrite())
-        currentReliableWrite = c.value.clone()
-        gatt?.writeCharacteristic(c) ?: false
+
+        // Get the value from 'c' which was set by the caller.
+        // Suppress deprecation for this read, as it's reading a locally prepared value.
+        @Suppress("DEPRECATION")
+        val valueFromCharacteristic = c.value
+
+        if (valueFromCharacteristic == null) {
+            errormsg("Characteristic value is null for reliable write of ${c.uuid}")
+            return@queueWork false // Must return Boolean for queueWork lambda
+        }
+
+        currentReliableWrite = valueFromCharacteristic.clone() // Store a clone for verification
+
+        // Use the new writeCharacteristic API
+        // 'c' provides the characteristic handle and writeType.
+        // 'currentReliableWrite' provides the data.
+        // The currentReliableWrite is asserted non-null by the check above implicitly.
+        gatt?.writeCharacteristic(c, currentReliableWrite!!, c.writeType) ?: false
     }
 
     fun asyncWriteReliable(
@@ -714,14 +732,27 @@ class SafeBluetooth(private val context: Context, private val device: BluetoothD
         makeSync { queueWriteReliable(c, it) }
 
     private fun queueWriteDescriptor(
-        c: BluetoothGattDescriptor,
+        descriptor: BluetoothGattDescriptor, // Renamed 'c' to 'descriptor' for clarity
         cont: Continuation<BluetoothGattDescriptor>, timeout: Long = 0
-    ) = queueWork("writeD", cont, timeout) { gatt?.writeDescriptor(c) ?: false }
+    ) = queueWork("writeD-${descriptor.uuid}", cont, timeout) {
+        // The descriptor had its value set by the caller (e.g., setNotify)
+        // We need to read that value to pass to the new API.
+        @Suppress("DEPRECATION") // Reading locally set descriptor.value to pass to new API
+        val valueToWrite = descriptor.value
+
+        if (valueToWrite != null) {
+            gatt?.writeDescriptor(descriptor, valueToWrite) ?: false
+        } else {
+            // This case should ideally not happen if descriptor.value was set prior to calling.
+            errormsg("Descriptor value is null for write of ${descriptor.uuid}")
+            false
+        }
+    }
 
     fun asyncWriteDescriptor(
-        c: BluetoothGattDescriptor,
+        descriptor: BluetoothGattDescriptor, // Renamed 'c' to 'descriptor'
         cb: (Result<BluetoothGattDescriptor>) -> Unit
-    ) = queueWriteDescriptor(c, CallbackContinuation(cb))
+    ) = queueWriteDescriptor(descriptor, CallbackContinuation(cb))
 
     /**
      * Some old androids have a bug where calling disconnect doesn't guarantee that the onConnectionStateChange callback gets called

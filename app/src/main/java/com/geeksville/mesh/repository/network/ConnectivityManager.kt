@@ -32,16 +32,25 @@ internal fun ConnectivityManager.networkAvailable(): Flow<Boolean> =
 internal fun ConnectivityManager.allNetworks(
     networkRequest: NetworkRequest = NetworkRequest.Builder().build(),
 ): Flow<Array<Network>> = callbackFlow {
+    val activeNetworks = mutableSetOf<Network>()
+
+    // Emit an initial empty state. `onAvailable` will be called for currently available networks
+    // shortly after registration, populating the set.
+    trySend(activeNetworks.toTypedArray())
+
     val callback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            trySend(allNetworks)
+            if (activeNetworks.add(network)) { // only send if the set changed
+                trySend(activeNetworks.toTypedArray())
+            }
         }
 
         override fun onLost(network: Network) {
-            trySend(allNetworks)
+            if (activeNetworks.remove(network)) { // only send if the set changed
+                trySend(activeNetworks.toTypedArray())
+            }
         }
     }
     registerNetworkCallback(networkRequest, callback)
-
     awaitClose { unregisterNetworkCallback(callback) }
 }

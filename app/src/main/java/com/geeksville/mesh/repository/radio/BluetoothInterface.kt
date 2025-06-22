@@ -214,6 +214,7 @@ class BluetoothInterface @AssistedInject constructor(
             val fromRadio = getCharacteristic(BTM_FROMRADIO_CHARACTER)
             s.asyncReadCharacteristic(fromRadio) {
                 try {
+                    @Suppress("DEPRECATION") // Accessing characteristic.value is deprecated
                     val b = it.getOrThrow()
                         .value.clone() // We clone the array just in case, I'm not sure if they keep reusing the array
 

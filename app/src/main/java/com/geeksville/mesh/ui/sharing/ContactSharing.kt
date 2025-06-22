@@ -354,19 +354,16 @@ fun userFieldsToString(user: MeshProtos.User): String {
             val valueString =
                 valueToString(value, fieldDescriptor) // Using the helper from previous example
             fieldLines.add("$fieldName: $valueString")
-        } else if (fieldDescriptor.isRepeated || fieldDescriptor.hasDefaultValue() || fieldDescriptor.isOptional) {
-            val defaultValue = fieldDescriptor.defaultValue
+        } else { // This 'else' corresponds to !user.hasField(fieldDescriptor)
+            // The field is not explicitly set.
+            // We should display its default value if singular, or "[]" if repeated.
             val valueString = if (fieldDescriptor.isRepeated) {
-                "[]" // Empty list
-            } else if (user.hasField(fieldDescriptor)) {
-                valueToString(
-                user.getField(fieldDescriptor),
-                fieldDescriptor
-            )
+                "[]" // Empty list for repeated fields
             } else {
-                valueToString(defaultValue, fieldDescriptor)
+                // For singular fields not explicitly set, display their default value.
+                // fieldDescriptor.defaultValue gives the type-specific default if none is set in .proto.
+                valueToString(fieldDescriptor.defaultValue, fieldDescriptor)
             }
-
             fieldLines.add("$fieldName: $valueString")
         }
     }
