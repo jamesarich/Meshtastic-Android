@@ -34,10 +34,11 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import com.geeksville.mesh.R
-import com.geeksville.mesh.model.UIViewModel
+import com.geeksville.mesh.ui.MainViewModel
 import com.geeksville.mesh.ui.metrics.DeviceMetricsScreen
 import com.geeksville.mesh.ui.metrics.EnvironmentMetricsScreen
 import com.geeksville.mesh.ui.metrics.HostMetricsLogScreen
+import com.geeksville.mesh.ui.metrics.MetricsViewModel
 import com.geeksville.mesh.ui.metrics.PositionLogScreen
 import com.geeksville.mesh.ui.metrics.PowerMetricsScreen
 import com.geeksville.mesh.ui.metrics.SignalMetricsScreen
@@ -45,6 +46,7 @@ import com.geeksville.mesh.ui.metrics.TracerouteLogScreen
 import com.geeksville.mesh.ui.node.NodeDetailScreen
 import com.geeksville.mesh.ui.node.NodeMapScreen
 import com.geeksville.mesh.ui.node.NodeScreen
+import com.geeksville.mesh.ui.node.NodeViewModel
 import kotlinx.serialization.Serializable
 
 sealed class NodesRoutes {
@@ -90,14 +92,14 @@ sealed class NodeDetailRoutes {
 
 fun NavGraphBuilder.nodesGraph(
     navController: NavHostController,
-    uiViewModel: UIViewModel,
+    mainViewModel: MainViewModel,
 ) {
     navigation<NodesRoutes.NodesGraph>(
         startDestination = NodesRoutes.Nodes,
     ) {
         composable<NodesRoutes.Nodes> {
             NodeScreen(
-                model = uiViewModel,
+               mainViewModel = mainViewModel,
                 navigateToMessages = {
                     navController.navigate(ContactsRoutes.Messages(it))
                 },
@@ -106,13 +108,13 @@ fun NavGraphBuilder.nodesGraph(
                 },
             )
         }
-        nodeDetailGraph(navController, uiViewModel)
+        nodeDetailGraph(navController, mainViewModel)
     }
 }
 
 fun NavGraphBuilder.nodeDetailGraph(
     navController: NavHostController,
-    uiViewModel: UIViewModel,
+    mainViewModel: MainViewModel,
 ) {
     navigation<NodesRoutes.NodeDetailGraph>(
         startDestination = NodesRoutes.NodeDetail()
@@ -122,7 +124,9 @@ fun NavGraphBuilder.nodeDetailGraph(
                 navController.getBackStackEntry<NodesRoutes.NodeDetailGraph>()
             }
             NodeDetailScreen(
-                uiViewModel = uiViewModel,
+                mainViewModel = mainViewModel,
+                metricsViewModel = hiltViewModel<MetricsViewModel>(parentEntry),
+                nodeViewModel = hiltViewModel<NodeViewModel>(parentEntry),
                 navigateToMessages = {
                     navController.navigate(ContactsRoutes.Messages(it))
                 },
@@ -132,7 +136,6 @@ fun NavGraphBuilder.nodeDetailGraph(
                 onNavigateUp = {
                     navController.navigateUp()
                 },
-                viewModel = hiltViewModel(parentEntry),
             )
         }
         NodeDetailRoute.entries.forEach { nodeDetailRoute ->
@@ -142,7 +145,7 @@ fun NavGraphBuilder.nodeDetailGraph(
                 }
                 when (nodeDetailRoute) {
                     NodeDetailRoute.DEVICE -> DeviceMetricsScreen(hiltViewModel(parentEntry))
-                    NodeDetailRoute.NODE_MAP -> NodeMapScreen(hiltViewModel(parentEntry))
+                    NodeDetailRoute.NODE_MAP -> NodeMapScreen(hiltViewModel<MetricsViewModel>(parentEntry))
                     NodeDetailRoute.POSITION_LOG -> PositionLogScreen(hiltViewModel(parentEntry))
                     NodeDetailRoute.ENVIRONMENT -> EnvironmentMetricsScreen(
                         hiltViewModel(

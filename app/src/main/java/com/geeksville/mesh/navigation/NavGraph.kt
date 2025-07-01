@@ -106,7 +106,7 @@ fun NavGraph(
         }
         contactsGraph(navController, mainViewModel) // Pass mainViewModel
         nodesGraph(navController, mainViewModel) // Pass mainViewModel
-        mapGraph(navController, mainViewModel) // Pass mainViewModel
+        mapGraph(navController) // Pass mainViewModel
         channelsGraph(navController, mainViewModel) // Pass mainViewModel
         connectionsGraph(navController, mainViewModel, bluetoothViewModel) // Pass mainViewModel
         composable<Route.DebugPanel> { DebugScreen() }

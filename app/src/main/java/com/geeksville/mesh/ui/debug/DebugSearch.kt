@@ -53,15 +53,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.geeksville.mesh.R
-import com.geeksville.mesh.model.DebugViewModel
-import com.geeksville.mesh.model.LogSearchManager.SearchMatch
-import com.geeksville.mesh.model.LogSearchManager.SearchState
-import com.geeksville.mesh.model.DebugViewModel.UiMeshLog
 import com.geeksville.mesh.ui.common.theme.AppTheme
+import com.geeksville.mesh.ui.debug.DebugViewModel.UiMeshLog
 
 @Composable
 internal fun DebugSearchNavigation(
-    searchState: SearchState,
+    searchState: LogSearchManager.SearchState,
     onNextMatch: () -> Unit,
     onPreviousMatch: () -> Unit,
     modifier: Modifier = Modifier
@@ -103,7 +100,7 @@ internal fun DebugSearchNavigation(
 
 @Composable
 internal fun DebugSearchBar(
-    searchState: SearchState,
+    searchState: LogSearchManager.SearchState,
     onSearchTextChange: (String) -> Unit,
     onNextMatch: () -> Unit,
     onPreviousMatch: () -> Unit,
@@ -156,7 +153,7 @@ internal fun DebugSearchBar(
 @Composable
 internal fun DebugSearchState(
     modifier: Modifier = Modifier,
-    searchState: SearchState,
+    searchState: LogSearchManager.SearchState,
     filterTexts: List<String>,
     presetFilters: List<String>,
     logs: List<UiMeshLog>,
@@ -213,7 +210,7 @@ internal fun DebugSearchState(
 @Composable
 fun DebugSearchStateviewModelDefaults(
     modifier: Modifier = Modifier,
-    searchState: SearchState,
+    searchState: LogSearchManager.SearchState,
     filterTexts: List<String>,
     presetFilters: List<String>,
     logs: List<UiMeshLog>,
@@ -249,7 +246,7 @@ private fun DebugSearchBarEmptyPreview() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 DebugSearchBar(
-                    searchState = SearchState(),
+                    searchState = LogSearchManager.SearchState(),
                     onSearchTextChange = { },
                     onNextMatch = { },
                     onPreviousMatch = { },
@@ -273,10 +270,10 @@ private fun DebugSearchBarWithTextPreview() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 DebugSearchBar(
-                    searchState = SearchState(
+                    searchState = LogSearchManager.SearchState(
                         searchText = "test message",
                         currentMatchIndex = 2,
-                        allMatches = List(5) { SearchMatch(it, 0, 10, "message") },
+                        allMatches = List(5) { LogSearchManager.SearchMatch(it, 0, 10, "message") },
                         hasMatches = true
                     ),
                     onSearchTextChange = { },
@@ -302,10 +299,10 @@ private fun DebugSearchBarWithMatchesPreview() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 DebugSearchBar(
-                    searchState = SearchState(
+                    searchState = LogSearchManager.SearchState(
                         searchText = "error",
                         currentMatchIndex = 0,
-                        allMatches = List(3) { SearchMatch(it, 0, 5, "message") },
+                        allMatches = List(3) { LogSearchManager.SearchMatch(it, 0, 5, "message") },
                         hasMatches = true
                     ),
                     onSearchTextChange = { },

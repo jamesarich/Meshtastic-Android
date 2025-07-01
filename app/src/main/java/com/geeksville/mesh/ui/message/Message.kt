@@ -73,6 +73,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.pluralStringResource
@@ -92,17 +93,14 @@ import com.geeksville.mesh.R
 import com.geeksville.mesh.database.entity.QuickChatAction
 import com.geeksville.mesh.model.Message
 import com.geeksville.mesh.model.Node
-import com.geeksville.mesh.model.UIViewModel // Keep for temporary uiViewModel for handleNodeMenuAction
-import com.geeksville.mesh.ui.contact.ContactViewModel // Import ContactViewModel
-import com.geeksville.mesh.ui.MainViewModel // Import MainViewModel
-import com.geeksville.mesh.database.NodeRepository // Import NodeRepository
 import com.geeksville.mesh.model.getChannel
+import com.geeksville.mesh.ui.MainViewModel
 import com.geeksville.mesh.ui.common.theme.AppTheme
+import com.geeksville.mesh.ui.contact.ContactViewModel
 import com.geeksville.mesh.ui.node.components.NodeKeyStatusIcon
 import com.geeksville.mesh.ui.node.components.NodeMenuAction
 import com.geeksville.mesh.ui.sharing.SharedContactDialog
 import kotlinx.coroutines.launch
-import androidx.compose.ui.graphics.vector.ImageVector
 
 private const val MESSAGE_CHARACTER_LIMIT = 200
 private const val SNIPPET_CHARACTER_LIMIT = 50
@@ -114,8 +112,6 @@ internal fun MessageScreen(
     message: String,
     contactViewModel: ContactViewModel = hiltViewModel(),
     mainViewModel: MainViewModel = hiltViewModel(),
-    nodeRepository: NodeRepository = hiltViewModel(),
-    // uiViewModel removed, handleNodeMenuAction will use mainViewModel
     navigateToMessages: (String) -> Unit,
     navigateToNodeDetails: (Int) -> Unit,
     onNavigateBack: () -> Unit,
@@ -124,7 +120,7 @@ internal fun MessageScreen(
     val clipboardManager = LocalClipboard.current
 
     // States from MainViewModel or NodeRepository
-    val ourNode by nodeRepository.ourNodeInfo.collectAsStateWithLifecycle() // From NodeRepository
+    val ourNode by mainViewModel.nodeRepository.ourNodeInfo.collectAsStateWithLifecycle() // From NodeRepository
     val isConnected by mainViewModel.isConnectedFlow.collectAsStateWithLifecycle() // From MainViewModel
     val channels by mainViewModel.channels.collectAsStateWithLifecycle() // From MainViewModel
 
@@ -145,11 +141,11 @@ internal fun MessageScreen(
     val (channelTitle, isDefaultPsk) = channelName
     val title = when (nodeId) {
         DataPacket.ID_BROADCAST -> channelTitle
-        else -> nodeRepository.getUser(nodeId).longName // From NodeRepository
+        else -> mainViewModel.nodeRepository.getUser(nodeId).longName // From NodeRepository
     }
     mainViewModel.setTitle(title) // Use MainViewModel
     val mismatchKey =
-        DataPacket.PKC_CHANNEL_INDEX == channelIndex && nodeRepository.getNode(nodeId).mismatchKey // From NodeRepository
+        DataPacket.PKC_CHANNEL_INDEX == channelIndex && mainViewModel.nodeRepository.getNode(nodeId).mismatchKey // From NodeRepository
 
 //    if (channelIndex != DataPacket.PKC_CHANNEL_INDEX && nodeId != DataPacket.ID_BROADCAST) {
 //        subtitle = "(ch: $channelIndex - $channelName)"
@@ -243,7 +239,7 @@ internal fun MessageScreen(
                     },
                     contactViewModel = contactViewModel,
                     mainViewModel = mainViewModel, // Pass mainViewModel
-                    nodeRepository = nodeRepository, // Pass nodeRepository
+                    nodeRepository = mainViewModel.nodeRepository, // Pass nodeRepository
                     contactKey = contactKey,
                     onReply = { replyingTo = it },
                     onNodeMenuAction = { action ->

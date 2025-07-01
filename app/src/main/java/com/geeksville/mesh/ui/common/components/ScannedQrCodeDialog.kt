@@ -55,12 +55,12 @@ import com.geeksville.mesh.R
 import com.geeksville.mesh.channelSet
 import com.geeksville.mesh.copy
 import com.geeksville.mesh.model.Channel
-import com.geeksville.mesh.model.UIViewModel
+import com.geeksville.mesh.ui.MainViewModel
 import com.geeksville.mesh.ui.radioconfig.components.ChannelSelection
 
 @Composable
 fun ScannedQrCodeDialog(
-    viewModel: UIViewModel,
+    viewModel: MainViewModel,
     incoming: ChannelSet,
 ) {
     val channels by viewModel.channels.collectAsStateWithLifecycle()

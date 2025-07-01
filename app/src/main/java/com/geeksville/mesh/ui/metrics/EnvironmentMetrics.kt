@@ -62,8 +62,6 @@ import com.geeksville.mesh.TelemetryProtos.Telemetry
 import com.geeksville.mesh.copy
 import com.geeksville.mesh.model.Environment
 import com.geeksville.mesh.model.EnvironmentGraphingData
-import com.geeksville.mesh.model.MetricsViewModel
-import com.geeksville.mesh.model.TimeFrame
 import com.geeksville.mesh.ui.common.components.IaqDisplayMode
 import com.geeksville.mesh.ui.common.components.IndoorAirQuality
 import com.geeksville.mesh.ui.common.components.OptionLabel

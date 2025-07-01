@@ -1,24 +1,44 @@
+/*
+ * Copyright (c) 2025 Meshtastic LLC
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package com.geeksville.mesh.ui.map
 
 import android.content.SharedPreferences
+import android.os.RemoteException
+import androidx.core.content.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.geeksville.mesh.DataPacket
+import com.geeksville.mesh.IMeshService
+import com.geeksville.mesh.MeshProtos
+import com.geeksville.mesh.android.BuildUtils.errormsg
 import com.geeksville.mesh.database.NodeRepository
 import com.geeksville.mesh.database.PacketRepository
-import com.geeksville.mesh.model.Node // May need this if nodesWithPosition returns List<Node>
-import com.geeksville.mesh.MeshProtos // For Packet.MeshPacket if waypoints are raw packets
+import com.geeksville.mesh.model.Node
+import com.geeksville.mesh.repository.datastore.RadioConfigRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import com.geeksville.mesh.ui.map.MAP_STYLE_ID // Import the constant
-import com.geeksville.mesh.DataPacket // Import DataPacket
 
 // From UIState.kt, specific to map filtering
 data class MapFilterState(
@@ -37,8 +57,10 @@ class MapViewModel @Inject constructor(
     private val preferences: SharedPreferences,
     private val nodeRepository: NodeRepository,
     private val packetRepository: PacketRepository,
-    private val mainViewModel: com.geeksville.mesh.ui.MainViewModel // Inject MainViewModel
+    private val radioConfigRepository: RadioConfigRepository,
 ) : ViewModel() {
+
+    val meshService: IMeshService? get() = radioConfigRepository.meshService
 
     private val onlyFavorites = MutableStateFlow(preferences.getBoolean("only-favorites", false))
     private val showWaypointsOnMap = MutableStateFlow(preferences.getBoolean("show-waypoints-on-map", true))
@@ -46,17 +68,17 @@ class MapViewModel @Inject constructor(
 
     fun setOnlyFavorites(value: Boolean) {
         onlyFavorites.value = value
-        preferences.edit().putBoolean("only-favorites", value).apply()
+        preferences.edit { putBoolean("only-favorites", value) }
     }
 
     fun setShowWaypointsOnMap(value: Boolean) {
         showWaypointsOnMap.value = value
-        preferences.edit().putBoolean("show-waypoints-on-map", value).apply()
+        preferences.edit { putBoolean("show-waypoints-on-map", value) }
     }
 
     fun setShowPrecisionCircleOnMap(value: Boolean) {
         showPrecisionCircleOnMap.value = value
-        preferences.edit().putBoolean("show-precision-circle-on-map", value).apply()
+        preferences.edit { putBoolean("show-precision-circle-on-map", value) }
     }
 
     val mapFilterStateFlow: StateFlow<MapFilterState> = combine(
@@ -88,7 +110,7 @@ class MapViewModel @Inject constructor(
 
     var mapStyleId: Int
         get() = preferences.getInt(MAP_STYLE_ID, 0) // Use imported constant
-        set(value) = preferences.edit().putInt(MAP_STYLE_ID, value).apply()
+        set(value) = preferences.edit { putInt(MAP_STYLE_ID, value) }
 
     // Waypoints from UIState.kt: packetRepository.getWaypoints().mapLatest { ... }
     val waypoints: StateFlow<Map<Int, com.geeksville.mesh.database.entity.Packet>> = packetRepository.getWaypoints().mapLatest { list ->
@@ -103,23 +125,39 @@ class MapViewModel @Inject constructor(
         packetRepository.deleteWaypoint(id)
     }
 
-    fun sendWaypoint(wpt: com.geeksville.mesh.MeshProtos.Waypoint, contactKey: String = "0${com.geeksville.mesh.DataPacket.ID_BROADCAST}") {
+
+    private fun sendDataPacket(p: DataPacket) {
+        try {
+            meshService?.send(p)
+        } catch (ex: RemoteException) {
+            errormsg("Send DataPacket error: ${ex.message}")
+        }
+    }
+
+    fun generatePacketId(): Int? {
+        return try {
+            meshService?.packetId
+        } catch (ex: RemoteException) {
+            errormsg("RemoteException: ${ex.message}")
+            return null
+        }
+    }
+
+    fun sendWaypoint(wpt: MeshProtos.Waypoint, contactKey: String = "0${DataPacket.ID_BROADCAST}") {
         val channel = contactKey[0].digitToIntOrNull()
         val dest = if (channel != null) contactKey.substring(1) else contactKey
 
         // If ID is 0, generate one. This mirrors logic from UIViewModel's EditWaypointDialog interaction.
         val finalWpt = if (wpt.id == 0) {
-            wpt.toBuilder().setId(mainViewModel.generatePacketId() ?: 0).build() // Fallback to 0 if generatePacketId is null
+            wpt.toBuilder().setId(generatePacketId() ?: 0)
+                .build() // Fallback to 0 if generatePacketId is null
         } else {
             wpt
         }
 
         if (finalWpt.id != 0) { // Ensure we have a valid ID before sending
-            val p = com.geeksville.mesh.DataPacket(dest, channel ?: 0, finalWpt)
-            mainViewModel.sendDataPacket(p)
-        } else {
-            // Log error or show snackbar: could not generate packet ID
-            mainViewModel.showSnackbar("Could not generate waypoint ID.")
+            val p = DataPacket(dest, channel ?: 0, finalWpt)
+            sendDataPacket(p)
         }
     }
 }

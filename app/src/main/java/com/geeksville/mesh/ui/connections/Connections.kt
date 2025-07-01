@@ -17,6 +17,8 @@
 
 package com.geeksville.mesh.ui.connections
 
+// import com.geeksville.mesh.model.Node // Will be from NodeRepository
+// import com.geeksville.mesh.model.UIViewModel // Will be removed
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -93,17 +95,16 @@ import com.geeksville.mesh.android.gpsDisabled
 import com.geeksville.mesh.android.hasLocationPermission
 import com.geeksville.mesh.android.isGooglePlayAvailable
 import com.geeksville.mesh.android.permissionMissing
+import com.geeksville.mesh.database.NodeRepository
 import com.geeksville.mesh.model.BTScanModel
 import com.geeksville.mesh.model.BluetoothViewModel
-// import com.geeksville.mesh.model.Node // Will be from NodeRepository
-// import com.geeksville.mesh.model.UIViewModel // Will be removed
-import com.geeksville.mesh.ui.MainViewModel // Import MainViewModel
-import com.geeksville.mesh.database.NodeRepository // Import NodeRepository
+import com.geeksville.mesh.model.Node
 import com.geeksville.mesh.navigation.ConfigRoute
 import com.geeksville.mesh.navigation.RadioConfigRoutes
 import com.geeksville.mesh.navigation.Route
 import com.geeksville.mesh.navigation.getNavRouteFrom
 import com.geeksville.mesh.service.MeshService
+import com.geeksville.mesh.ui.MainViewModel
 import com.geeksville.mesh.ui.connections.components.BLEDevices
 import com.geeksville.mesh.ui.connections.components.NetworkDevices
 import com.geeksville.mesh.ui.connections.components.UsbDevices
@@ -128,7 +129,6 @@ fun String?.isIPAddress(): Boolean {
 @Composable
 fun ConnectionsScreen(
     mainViewModel: MainViewModel = hiltViewModel(), // Use MainViewModel
-    nodeRepository: NodeRepository = hiltViewModel(), // Use NodeRepository
     scanModel: BTScanModel = hiltViewModel(),
     bluetoothViewModel: BluetoothViewModel = hiltViewModel(),
     radioConfigViewModel: RadioConfigViewModel = hiltViewModel(),
@@ -275,6 +275,8 @@ fun ConnectionsScreen(
             )
 
             Spacer(modifier = Modifier.height(8.dp))
+
+            val nodeRepository: NodeRepository = mainViewModel.nodeRepository // Use NodeRepository
 
             val isConnected by mainViewModel.isConnectedFlow.collectAsState(false) // Use mainViewModel
             val ourNode by nodeRepository.ourNodeInfo.collectAsState() // Use nodeRepository

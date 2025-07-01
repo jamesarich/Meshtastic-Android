@@ -17,6 +17,7 @@
 
 package com.geeksville.mesh.ui.node
 
+// Import NodeViewModel
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -42,14 +43,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.geeksville.mesh.DataPacket
 import com.geeksville.mesh.model.DeviceVersion
-import com.geeksville.mesh.model.Node // Keep this for showSharedContact type
-import com.geeksville.mesh.model.UIViewModel // Keep for uiViewModel temporary injection for addSharedContact
-import com.geeksville.mesh.ui.MainViewModel // Import MainViewModel
+import com.geeksville.mesh.model.Node
+import com.geeksville.mesh.ui.MainViewModel
 import com.geeksville.mesh.ui.common.components.rememberTimeTickWithLifecycle
 import com.geeksville.mesh.ui.node.components.NodeFilterTextField
 import com.geeksville.mesh.ui.node.components.NodeItem
-// Import NodeViewModel
-import com.geeksville.mesh.ui.node.NodeViewModel
 import com.geeksville.mesh.ui.node.components.NodeMenuAction
 import com.geeksville.mesh.ui.sharing.AddContactFAB
 import com.geeksville.mesh.ui.sharing.SharedContactDialog

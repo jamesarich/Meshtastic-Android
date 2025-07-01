@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import com.geeksville.mesh.TelemetryProtos.Telemetry
 import com.geeksville.mesh.ui.common.theme.InfantryBlue
 import com.geeksville.mesh.ui.common.theme.Orange
+import com.geeksville.mesh.ui.metrics.TimeFrame
 
 enum class Environment(val color: Color) {
     TEMPERATURE(Color.Red) {

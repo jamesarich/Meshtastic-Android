@@ -20,7 +20,6 @@ package com.geeksville.mesh
 import android.os.Bundle
 import androidx.core.content.edit
 import androidx.fragment.app.Fragment
-import com.geeksville.mesh.model.UIViewModel
 import com.github.appintro.AppIntro
 import com.github.appintro.AppIntroFragment
 
@@ -59,7 +58,7 @@ class AppIntroduction : AppIntro() {
     }
 
     private fun done() {
-        val prefs = UIViewModel.getPreferences(this)
+        val prefs = this.applicationContext.getSharedPreferences("ui-prefs", MODE_PRIVATE)
         prefs.edit { putBoolean("app_intro_completed", true) }
         finish()
     }

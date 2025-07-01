@@ -40,6 +40,9 @@ import com.geeksville.mesh.android.Logging
 import com.geeksville.mesh.database.MeshLogRepository
 import com.geeksville.mesh.database.entity.FirmwareRelease
 import com.geeksville.mesh.database.entity.MeshLog
+import com.geeksville.mesh.model.DeviceHardware
+import com.geeksville.mesh.model.EnvironmentMetricsState
+import com.geeksville.mesh.model.Node
 import com.geeksville.mesh.model.map.CustomTileSource
 import com.geeksville.mesh.navigation.NodesRoutes
 import com.geeksville.mesh.repository.api.DeviceHardwareRepository

@@ -73,7 +73,6 @@ fun NavGraphBuilder.contactsGraph(
             MessageScreen(
                 contactKey = args.contactKey,
                 message = args.message,
-                // viewModel = uiViewModel, // UIViewModel removed, MainViewModel will be hiltViewModel() inside if needed
                 mainViewModel = mainViewModel, // Pass mainViewModel
                 navigateToMessages = { navController.navigate(ContactsRoutes.Messages(it)) },
                 navigateToNodeDetails = { navController.navigate(NodesRoutes.NodeDetail(it)) },
@@ -90,7 +89,7 @@ fun NavGraphBuilder.contactsGraph(
         )
     ) { backStackEntry ->
         val message = backStackEntry.toRoute<ContactsRoutes.Share>().message
-        ShareScreen(mainViewModel) { // Pass mainViewModel to ShareScreen
+        ShareScreen { // Pass mainViewModel to ShareScreen
             navController.navigate(ContactsRoutes.Messages(it, message)) {
                 popUpTo<ContactsRoutes.Share> { inclusive = true }
             }

@@ -51,8 +51,7 @@ import com.geeksville.mesh.MessageStatus
 import com.geeksville.mesh.R
 import com.geeksville.mesh.database.entity.Reaction
 import com.geeksville.mesh.model.Message
-import com.geeksville.mesh.model.UIViewModel // Keep for temporary uiViewModel injection
-import com.geeksville.mesh.ui.contact.ContactViewModel // Import ContactViewModel
+import com.geeksville.mesh.ui.contact.ContactViewModel
 import com.geeksville.mesh.ui.message.components.MessageItem
 import com.geeksville.mesh.ui.message.components.ReactionDialog
 import com.geeksville.mesh.ui.node.components.NodeMenuAction

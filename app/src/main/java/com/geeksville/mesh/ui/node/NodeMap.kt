@@ -26,8 +26,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.geeksville.mesh.model.MetricsViewModel
 import com.geeksville.mesh.ui.map.rememberMapViewWithLifecycle
+import com.geeksville.mesh.ui.metrics.MetricsViewModel
 import com.geeksville.mesh.util.addCopyright
 import com.geeksville.mesh.util.addPolyline
 import com.geeksville.mesh.util.addPositionMarkers

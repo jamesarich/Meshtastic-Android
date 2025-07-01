@@ -21,6 +21,7 @@ import android.app.PendingIntent
 import android.app.TaskStackBuilder
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.hardware.usb.UsbManager
@@ -58,21 +59,18 @@ import com.geeksville.mesh.android.permissionMissing
 import com.geeksville.mesh.android.shouldShowRequestPermissionRationale
 import com.geeksville.mesh.concurrent.handledLaunch
 import com.geeksville.mesh.model.BluetoothViewModel
-import com.geeksville.mesh.model.UIViewModel
 import com.geeksville.mesh.navigation.DEEP_LINK_BASE_URI
 import com.geeksville.mesh.service.MeshService
 import com.geeksville.mesh.service.ServiceRepository
 import com.geeksville.mesh.service.startService
 import com.geeksville.mesh.ui.MainMenuAction
 import com.geeksville.mesh.ui.MainScreen
+import com.geeksville.mesh.ui.MainViewModel
 import com.geeksville.mesh.ui.common.theme.AppTheme
 import com.geeksville.mesh.ui.common.theme.MODE_DYNAMIC
 import com.geeksville.mesh.util.Exceptions
 import com.geeksville.mesh.util.LanguageUtils
-import android.content.SharedPreferences // For injected SharedPreferences
-import javax.inject.Named // For Named injection
 import com.geeksville.mesh.util.getPackageInfoCompat
-import com.geeksville.mesh.ui.debug.DebugViewModel // Import DebugViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
 import javax.inject.Inject
@@ -86,7 +84,6 @@ class MainActivity : AppCompatActivity(), Logging {
     // If model.setTheme or model.showAlert were used directly by MainActivity, it would need MainViewModel.
 
     @Inject
-    @Named("ui-prefs") // Assuming "ui-prefs" is the name for this SharedPreferences
     internal lateinit var uiPrefs: SharedPreferences
 
     @Inject
@@ -103,7 +100,7 @@ class MainActivity : AppCompatActivity(), Logging {
                 info("Bluetooth permissions granted")
             } else {
                 warn("Bluetooth permissions denied")
-                model.showSnackbar(permissionMissing)
+                mainViewModel.showSnackbar(permissionMissing)
             }
             requestedEnable = false
             bluetoothViewModel.permissionsUpdated()
@@ -116,7 +113,7 @@ class MainActivity : AppCompatActivity(), Logging {
                 checkAlertDnD()
             } else {
                 warn("Notification permissions denied")
-                model.showSnackbar(getString(R.string.notification_denied))
+                mainViewModel.showSnackbar(getString(R.string.notification_denied))
             }
         }
 
@@ -191,7 +188,7 @@ class MainActivity : AppCompatActivity(), Logging {
                         it.path?.startsWith("/E/") == true
                     ) {
                         debug("App link data is a channel set")
-                        model.requestChannelUrl(it)
+                        mainViewModel.requestChannelUrl(it)
                     } else {
                         debug("App link data is not a channel set")
                     }
@@ -345,7 +342,7 @@ class MainActivity : AppCompatActivity(), Logging {
                     errormsg("Device error during init ${ex.message}")
                 }
 
-                debug("connected to mesh service, connectionState=${model.connectionState.value}")
+                debug("connected to mesh service, connectionState=${mainViewModel.connectionState.value}")
             }
         }
 

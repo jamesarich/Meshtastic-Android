@@ -17,10 +17,12 @@
 
 package com.geeksville.mesh.ui.map
 
+// Required new imports
 import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.content.res.AppCompatResources
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,14 +34,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lens
 import androidx.compose.material.icons.filled.LocationDisabled
 import androidx.compose.material.icons.filled.PinDrop
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.MyLocation
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -50,10 +55,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.background
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Text
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -61,16 +62,11 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel // Will change to hiltViewModel
 import com.geeksville.mesh.DataPacket
 import com.geeksville.mesh.MeshProtos.Waypoint
 import com.geeksville.mesh.R
-// Required new imports
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.geeksville.mesh.ui.MainViewModel
-import com.geeksville.mesh.ui.node.NodeViewModel
-import com.geeksville.mesh.database.NodeRepository // If used directly for getUser
 import com.geeksville.mesh.android.BuildUtils.debug
 import com.geeksville.mesh.android.getLocationPermissions
 import com.geeksville.mesh.android.gpsDisabled
@@ -79,14 +75,15 @@ import com.geeksville.mesh.android.hasLocationPermission
 import com.geeksville.mesh.copy
 import com.geeksville.mesh.database.entity.Packet
 import com.geeksville.mesh.model.Node
-import com.geeksville.mesh.model.UIViewModel
 import com.geeksville.mesh.model.map.CustomTileSource
 import com.geeksville.mesh.model.map.MarkerWithLabel
 import com.geeksville.mesh.model.map.clustering.RadiusMarkerClusterer
+import com.geeksville.mesh.ui.MainViewModel
 import com.geeksville.mesh.ui.map.components.CacheLayout
 import com.geeksville.mesh.ui.map.components.DownloadButton
 import com.geeksville.mesh.ui.map.components.EditWaypointDialog
 import com.geeksville.mesh.ui.map.components.MapButton
+import com.geeksville.mesh.ui.node.NodeViewModel
 import com.geeksville.mesh.util.SqlTileWriterExt
 import com.geeksville.mesh.util.addCopyright
 import com.geeksville.mesh.util.addScaleBarOverlay
@@ -222,7 +219,6 @@ fun MapView(
     mapViewModel: MapViewModel = hiltViewModel(),
     mainViewModel: MainViewModel = hiltViewModel(),
     nodeViewModel: NodeViewModel = hiltViewModel(), // For filteredNodeList & ourNodeInfo
-    nodeRepository: NodeRepository = hiltViewModel(), // For getUser
     navigateToNodeDetails: (Int) -> Unit,
 ) {
     var mapFilterExpanded by remember { mutableStateOf(false) }
@@ -407,8 +403,10 @@ fun MapView(
 
     fun getUsername(id: String?) = if (id == DataPacket.ID_LOCAL) {
         context.getString(R.string.you)
+    } else if (id != null && id.isNotEmpty() && id != DataPacket.ID_BROADCAST) {
+        mainViewModel.nodeRepository.getUser(id).longName
     } else {
-        nodeRepository.getUser(id).longName // Use nodeRepository
+        context.getString(R.string.unknown)
     }
 
     @Composable

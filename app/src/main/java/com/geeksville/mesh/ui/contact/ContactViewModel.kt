@@ -1,35 +1,46 @@
+/*
+ * Copyright (c) 2025 Meshtastic LLC
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package com.geeksville.mesh.ui.contact
 
 import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.geeksville.mesh.DataPacket
 import com.geeksville.mesh.database.NodeRepository
 import com.geeksville.mesh.database.PacketRepository
 import com.geeksville.mesh.database.QuickChatActionRepository
-import com.geeksville.mesh.model.Contact // Assuming Contact data class might be moved or copied here
-import com.geeksville.mesh.model.Message // Assuming Message data class might be moved or copied here
-import com.geeksville.mesh.repository.datastore.RadioConfigRepository
-import com.geeksville.mesh.AppOnlyProtos
+import com.geeksville.mesh.database.entity.Packet
 import com.geeksville.mesh.database.entity.QuickChatAction
+import com.geeksville.mesh.model.Message
+import com.geeksville.mesh.model.getChannel
+import com.geeksville.mesh.repository.datastore.RadioConfigRepository
+import com.geeksville.mesh.service.ServiceAction
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import com.geeksville.mesh.DataPacket
-import com.geeksville.mesh.R
-import com.geeksville.mesh.util.getShortDate
-import com.geeksville.mesh.MeshProtos
-import com.geeksville.mesh.AdminProtos
-import com.geeksville.mesh.repository.radio.ServiceAction
-import kotlinx.coroutines.Dispatchers
-import android.os.RemoteException // Should be this one
-import com.geeksville.mesh.model.Message // For StateFlow<List<Message>>
 
 @HiltViewModel
 class ContactViewModel @Inject constructor(
@@ -56,12 +67,8 @@ class ContactViewModel @Inject constructor(
         val isDefaultPSK: Boolean? = false
     )
 
-    // Assuming getShortDate and DataPacket.ID_BROADCAST, DataPacket.ID_LOCAL are accessible
-    // May need to import R.string.channel_name
-    // May need to import getShortDate from com.geeksville.mesh.util.getShortDate
-    // May need to import DataPacket from com.geeksville.mesh.DataPacket
-    // May need to import R from com.geeksville.mesh.R
-
+    fun getNode(userId: String?) = nodeDB.getNode(userId ?: DataPacket.ID_BROADCAST)
+    fun getUser(userId: String?) = nodeDB.getUser(userId ?: DataPacket.ID_BROADCAST)
     val contactList: StateFlow<List<Contact>> = combine(
         nodeDB.myNodeInfo,
         packetRepository.getContacts(),
@@ -71,20 +78,20 @@ class ContactViewModel @Inject constructor(
         val myNodeNum = myNodeInfo?.myNodeNum ?: return@combine emptyList()
         // Add empty channel placeholders (always show Broadcast contacts, even when empty)
         val placeholder = (0 until channelSet.settingsCount).associate { ch ->
-            val contactKey = "$ch${com.geeksville.mesh.DataPacket.ID_BROADCAST}"
-            val data = com.geeksville.mesh.DataPacket(bytes = null, dataType = 1, time = 0L, channel = ch)
-            contactKey to com.geeksville.mesh.database.entity.Packet(0L, myNodeNum, 1, contactKey, 0L, true, data)
+            val contactKey = "$ch${DataPacket.ID_BROADCAST}"
+            val data = DataPacket(bytes = null, dataType = 1, time = 0L, channel = ch)
+            contactKey to Packet(0L, myNodeNum, 1, contactKey, 0L, true, data)
         }
 
         (contacts + (placeholder - contacts.keys)).values.map { packet ->
             val data = packet.data
             val contactKey = packet.contact_key
 
-            val fromLocal = data.from == com.geeksville.mesh.DataPacket.ID_LOCAL
-            val toBroadcast = data.to == com.geeksville.mesh.DataPacket.ID_BROADCAST
+            val fromLocal = data.from == DataPacket.ID_LOCAL
+            val toBroadcast = data.to == DataPacket.ID_BROADCAST
 
-            val user = nodeDB.getUser(if (fromLocal) data.to else data.from)
-            val node = nodeDB.getNode(if (fromLocal) data.to else data.from)
+            val user = getUser(if (fromLocal) data.to else data.from)
+            val node = getNode(if (fromLocal) data.to else data.from)
 
             val shortName = user.shortName
             val longName = if (toBroadcast) {
@@ -126,7 +133,7 @@ class ContactViewModel @Inject constructor(
         _contactKeyForMessages.filterNotNull().flatMapLatest { contactKey ->
             // Assuming packetRepository.getMessagesFrom can correctly resolve getNode
             // This might require passing nodeDB::getNode or similar if it was a direct reference
-            packetRepository.getMessagesFrom(contactKey, nodeDB::getNode)
+            packetRepository.getMessagesFrom(contactKey, ::getNode)
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -148,7 +155,7 @@ class ContactViewModel @Inject constructor(
         if (channel == null) { // Direct message
             val node = nodeDB.getNode(dest)
             if (!node.isFavorite) {
-                viewModelScope.launch { radioConfigRepository.onServiceAction(com.geeksville.mesh.repository.radio.ServiceAction.Favorite(node)) }
+                viewModelScope.launch { radioConfigRepository.onServiceAction(ServiceAction.Favorite(node)) }
             }
         }
         val p = DataPacket(dest, channel ?: 0, str, replyId)
@@ -178,11 +185,11 @@ class ContactViewModel @Inject constructor(
     }
 
     fun sendReaction(emoji: String, replyId: Int, contactKey: String) = viewModelScope.launch {
-        radioConfigRepository.onServiceAction(com.geeksville.mesh.repository.radio.ServiceAction.Reaction(emoji, replyId, contactKey))
+        radioConfigRepository.onServiceAction(ServiceAction.Reaction(emoji, replyId, contactKey))
     }
 
     fun addSharedContact(sharedContact: com.geeksville.mesh.AdminProtos.SharedContact) = viewModelScope.launch {
-        radioConfigRepository.onServiceAction(com.geeksville.mesh.repository.radio.ServiceAction.AddSharedContact(sharedContact))
+        radioConfigRepository.onServiceAction(ServiceAction.AddSharedContact(sharedContact))
     }
 
     fun setMuteUntil(contacts: List<String>, until: Long) = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {

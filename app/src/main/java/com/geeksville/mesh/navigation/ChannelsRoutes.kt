@@ -23,7 +23,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.navigation
-import com.geeksville.mesh.model.UIViewModel
+import com.geeksville.mesh.ui.MainViewModel
 import com.geeksville.mesh.ui.radioconfig.components.ChannelConfigScreen
 import com.geeksville.mesh.ui.radioconfig.components.LoRaConfigScreen
 import com.geeksville.mesh.ui.sharing.ChannelScreen
@@ -41,7 +41,7 @@ sealed class ChannelsRoutes {
 /**
  * Navigation graph for for the top level ChannelScreen - [ChannelsRoutes.Channels].
  */
-fun NavGraphBuilder.channelsGraph(navController: NavHostController, uiViewModel: UIViewModel) {
+fun NavGraphBuilder.channelsGraph(navController: NavHostController, mainViewModel: MainViewModel) {
     navigation<ChannelsRoutes.ChannelsGraph>(
         startDestination = ChannelsRoutes.Channels,
     ) {
@@ -50,7 +50,7 @@ fun NavGraphBuilder.channelsGraph(navController: NavHostController, uiViewModel:
                 navController.getBackStackEntry<ChannelsRoutes.ChannelsGraph>()
             }
             ChannelScreen(
-                viewModel = uiViewModel,
+                viewModel = mainViewModel,
                 radioConfigViewModel = hiltViewModel(parentEntry),
                 onNavigate = { route -> navController.navigate(route) }
             )

@@ -51,7 +51,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navigation
 import com.geeksville.mesh.MeshProtos.DeviceMetadata
 import com.geeksville.mesh.R
-import com.geeksville.mesh.model.UIViewModel
+import com.geeksville.mesh.ui.MainViewModel
 import com.geeksville.mesh.ui.radioconfig.RadioConfigScreen
 import com.geeksville.mesh.ui.radioconfig.components.AmbientLightingConfigScreen
 import com.geeksville.mesh.ui.radioconfig.components.AudioConfigScreen
@@ -159,7 +159,7 @@ fun getNavRouteFrom(routeName: String): Route? {
         ?: ModuleRoute.entries.find { it.name == routeName }?.route
 }
 
-fun NavGraphBuilder.radioConfigGraph(navController: NavHostController, uiViewModel: UIViewModel) {
+fun NavGraphBuilder.radioConfigGraph(navController: NavHostController, mainViewModel: MainViewModel) {
     navigation<RadioConfigRoutes.RadioConfigGraph>(
         startDestination = RadioConfigRoutes.RadioConfig(),
     ) {
@@ -168,7 +168,7 @@ fun NavGraphBuilder.radioConfigGraph(navController: NavHostController, uiViewMod
                 navController.getBackStackEntry<RadioConfigRoutes.RadioConfigGraph>()
             }
             RadioConfigScreen(
-                uiViewModel = uiViewModel,
+                mainViewModel = mainViewModel,
                 viewModel = hiltViewModel(parentEntry)
             ) {
                 navController.navigate(it) {

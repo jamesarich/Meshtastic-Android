@@ -17,6 +17,7 @@
 
 package com.geeksville.mesh.ui.node
 
+// import com.geeksville.mesh.model.UIViewModel // Will be removed
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -120,23 +121,21 @@ import com.geeksville.mesh.android.BuildUtils.debug
 import com.geeksville.mesh.database.entity.asDeviceVersion
 import com.geeksville.mesh.model.DeviceHardware
 import com.geeksville.mesh.model.DeviceVersion
-import com.geeksville.mesh.model.MetricsState
-import com.geeksville.mesh.model.MetricsViewModel // This should be ui.metrics.MetricsViewModel after relocation
 import com.geeksville.mesh.model.Node
-// import com.geeksville.mesh.model.UIViewModel // Will be removed
-import com.geeksville.mesh.ui.MainViewModel // Import MainViewModel
-import com.geeksville.mesh.ui.node.NodeViewModel // Import NodeViewModel
 import com.geeksville.mesh.model.isUnmessageableRole
 import com.geeksville.mesh.navigation.NodeDetailRoutes
 import com.geeksville.mesh.navigation.RadioConfigRoutes
 import com.geeksville.mesh.navigation.Route
 import com.geeksville.mesh.service.ServiceAction
+import com.geeksville.mesh.ui.MainViewModel
 import com.geeksville.mesh.ui.common.components.PreferenceCategory
 import com.geeksville.mesh.ui.common.preview.NodePreviewParameterProvider
 import com.geeksville.mesh.ui.common.theme.AppTheme
 import com.geeksville.mesh.ui.common.theme.Green
 import com.geeksville.mesh.ui.common.theme.Orange
 import com.geeksville.mesh.ui.common.theme.Yellow
+import com.geeksville.mesh.ui.metrics.MetricsState
+import com.geeksville.mesh.ui.metrics.MetricsViewModel
 import com.geeksville.mesh.ui.node.components.NodeActionDialogs
 import com.geeksville.mesh.ui.node.components.NodeMenuAction
 import com.geeksville.mesh.ui.radioconfig.NavCard

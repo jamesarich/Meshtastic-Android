@@ -17,6 +17,7 @@
 
 package com.geeksville.mesh.ui
 
+// import com.geeksville.mesh.model.UIViewModel // Will be replaced by MainViewModel
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -54,9 +55,7 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -81,8 +80,6 @@ import com.geeksville.mesh.R
 import com.geeksville.mesh.model.BluetoothViewModel
 import com.geeksville.mesh.model.DeviceVersion
 import com.geeksville.mesh.model.Node
-// import com.geeksville.mesh.model.UIViewModel // Will be replaced by MainViewModel
-import com.geeksville.mesh.ui.MainViewModel // Import MainViewModel
 import com.geeksville.mesh.navigation.ChannelsRoutes
 import com.geeksville.mesh.navigation.ConnectionsRoutes
 import com.geeksville.mesh.navigation.ContactsRoutes
@@ -129,7 +126,6 @@ fun MainScreen(
 ) {
     val navController = rememberNavController()
     val connectionState by mainViewModel.connectionState.collectAsStateWithLifecycle() // Use mainViewModel
-    val localConfig by mainViewModel.localConfig.collectAsStateWithLifecycle() // Use mainViewModel
     val requestChannelSet by mainViewModel.requestChannelSet.collectAsStateWithLifecycle() // Use mainViewModel
     if (connectionState.isConnected()) {
         requestChannelSet?.let { newChannelSet ->
@@ -496,7 +492,7 @@ private fun TopBarActions(
             DebugMenuActions()
 
         currentDestination.hasRoute<RadioConfigRoutes.RadioConfig>() ->
-            RadioConfigMenuActions(viewModel = viewModel)
+            RadioConfigMenuActions(mainViewModel = mainViewModel)
 
         else -> {}
     }

@@ -17,58 +17,45 @@
 
 package com.geeksville.mesh.ui.debug // Updated package
 
+import android.app.Application
+import android.net.Uri
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.geeksville.mesh.MeshProtos
+import com.geeksville.mesh.Portnums.PortNum
 import com.geeksville.mesh.android.Logging
 import com.geeksville.mesh.database.MeshLogRepository
+import com.geeksville.mesh.database.NodeRepository
 import com.geeksville.mesh.database.entity.MeshLog
+import com.geeksville.mesh.repository.datastore.RadioConfigRepository
+import com.geeksville.mesh.util.positionToMeter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.BufferedWriter
+import java.io.FileNotFoundException
+import java.io.FileWriter
 import java.text.DateFormat
+import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
-import com.geeksville.mesh.Portnums.PortNum
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import com.geeksville.mesh.repository.datastore.RadioConfigRepository
-import android.net.Uri // For saveMessagesCSV
-import com.geeksville.mesh.database.NodeRepository // For saveMessagesCSV
-import com.geeksville.mesh.MeshProtos // For saveMessagesCSV (Position)
-import com.geeksville.mesh.Position // For saveMessagesCSV (Position type)
-import com.geeksville.mesh.util.positionToMeter // For saveMessagesCSV
-import java.io.BufferedWriter // For saveMessagesCSV
-import java.io.FileNotFoundException // For saveMessagesCSV
-import java.io.FileWriter // For saveMessagesCSV
-import java.text.SimpleDateFormat // For saveMessagesCSV
-import kotlinx.coroutines.flow.first // For saveMessagesCSV
-import kotlinx.coroutines.withContext // For saveMessagesCSV
-import kotlin.math.roundToInt // For saveMessagesCSV
+import kotlin.math.roundToInt
 
 
-data class SearchMatch(
-    val logIndex: Int,
-    val start: Int,
-    val end: Int,
-    val field: String
-)
-
-data class SearchState(
-    val searchText: String = "",
-    val currentMatchIndex: Int = -1,
-    val allMatches: List<SearchMatch> = emptyList(),
-    val hasMatches: Boolean = false
-)
 
 // --- Search and Filter Managers ---
 class LogSearchManager {
@@ -92,7 +79,7 @@ class LogSearchManager {
     private val _currentMatchIndex = MutableStateFlow(-1)
     val currentMatchIndex = _currentMatchIndex.asStateFlow()
 
-    private val _searchState = MutableStateFlow(SearchState())
+    private val _searchState = MutableStateFlow(LogSearchManager.SearchState())
     val searchState = _searchState.asStateFlow()
 
     fun setSearchText(text: String) {

@@ -77,7 +77,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import com.geeksville.mesh.model.TimeFrame
+import com.geeksville.mesh.ui.metrics.TimeFrame
 
 private const val NO_OPTION_INDEX = -1
 

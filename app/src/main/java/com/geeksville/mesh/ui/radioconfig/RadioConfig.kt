@@ -17,6 +17,7 @@
 
 package com.geeksville.mesh.ui.radioconfig
 
+// import com.geeksville.mesh.model.UIViewModel // Will be removed
 import android.app.Activity
 import android.content.Intent
 import android.widget.Toast
@@ -68,13 +69,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.geeksville.mesh.ClientOnlyProtos.DeviceProfile
 import com.geeksville.mesh.R
-// import com.geeksville.mesh.model.UIViewModel // Will be removed
-import com.geeksville.mesh.ui.MainViewModel // Import MainViewModel
 import com.geeksville.mesh.navigation.AdminRoute
 import com.geeksville.mesh.navigation.ConfigRoute
 import com.geeksville.mesh.navigation.ModuleRoute
 import com.geeksville.mesh.navigation.Route
 import com.geeksville.mesh.navigation.getNavRouteFrom
+import com.geeksville.mesh.ui.MainViewModel
 import com.geeksville.mesh.ui.common.components.PreferenceCategory
 import com.geeksville.mesh.ui.common.theme.AppTheme
 import com.geeksville.mesh.ui.radioconfig.components.EditDeviceProfileDialog
@@ -112,13 +112,13 @@ fun RadioConfigScreen(
     var isWaiting by remember { mutableStateOf(false) }
     if (isWaiting) {
         PacketResponseStateDialog(
-            state = state.responseState,
+            state = radioState.responseState,
             onDismiss = {
                 isWaiting = false
                 viewModel.clearPacketResponse()
             },
             onComplete = {
-                getNavRouteFrom(state.route)?.let { route ->
+                getNavRouteFrom(radioState.route)?.let { route ->
                     isWaiting = false
                     viewModel.clearPacketResponse()
                     onNavigate(route)
@@ -180,7 +180,7 @@ fun RadioConfigScreen(
 
     RadioConfigItemList(
         modifier = modifier,
-        state = state,
+        state = radioState,
         excludedModulesUnlocked = excludedModulesUnlocked,
         onRouteClick = { route ->
             isWaiting = true
