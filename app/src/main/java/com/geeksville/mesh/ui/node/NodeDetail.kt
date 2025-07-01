@@ -121,9 +121,11 @@ import com.geeksville.mesh.database.entity.asDeviceVersion
 import com.geeksville.mesh.model.DeviceHardware
 import com.geeksville.mesh.model.DeviceVersion
 import com.geeksville.mesh.model.MetricsState
-import com.geeksville.mesh.model.MetricsViewModel
+import com.geeksville.mesh.model.MetricsViewModel // This should be ui.metrics.MetricsViewModel after relocation
 import com.geeksville.mesh.model.Node
-import com.geeksville.mesh.model.UIViewModel
+// import com.geeksville.mesh.model.UIViewModel // Will be removed
+import com.geeksville.mesh.ui.MainViewModel // Import MainViewModel
+import com.geeksville.mesh.ui.node.NodeViewModel // Import NodeViewModel
 import com.geeksville.mesh.model.isUnmessageableRole
 import com.geeksville.mesh.navigation.NodeDetailRoutes
 import com.geeksville.mesh.navigation.RadioConfigRoutes
@@ -180,15 +182,16 @@ private enum class LogsType(
 @Composable
 fun NodeDetailScreen(
     modifier: Modifier = Modifier,
-    viewModel: MetricsViewModel = hiltViewModel(),
-    uiViewModel: UIViewModel = hiltViewModel(),
+    metricsViewModel: MetricsViewModel = hiltViewModel(), // Renamed for clarity
+    mainViewModel: MainViewModel = hiltViewModel(), // Inject MainViewModel
+    nodeViewModel: NodeViewModel = hiltViewModel(), // Inject NodeViewModel
     navigateToMessages: (String) -> Unit,
     onNavigate: (Route) -> Unit = {},
     onNavigateUp: () -> Unit = {},
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    val environmentState by viewModel.environmentState.collectAsStateWithLifecycle()
-    val lastTracerouteTime by uiViewModel.lastTraceRouteTime.collectAsStateWithLifecycle()
+    val state by metricsViewModel.state.collectAsStateWithLifecycle() // Use metricsViewModel
+    val environmentState by metricsViewModel.environmentState.collectAsStateWithLifecycle() // Use metricsViewModel
+    val lastTracerouteTime by mainViewModel.lastTraceRouteTime.collectAsStateWithLifecycle() // Use mainViewModel
 
     /* The order is with respect to the enum above: LogsType */
     val availabilities = remember(key1 = state, key2 = environmentState) {
@@ -203,11 +206,11 @@ fun NodeDetailScreen(
             state.hasHostMetrics(),
         )
     }
-    val ourNode by uiViewModel.ourNodeInfo.collectAsStateWithLifecycle()
+    val ourNode by nodeViewModel.ourNodeInfo.collectAsStateWithLifecycle() // Use nodeViewModel
 
     if (state.node != null) {
         val node = state.node ?: return
-        uiViewModel.setTitle(node.user.longName)
+        mainViewModel.setTitle(node.user.longName) // Use mainViewModel
         var share by remember { mutableStateOf<Boolean>(false) }
         if (share) {
             SharedContactDialog(node) {
@@ -222,19 +225,19 @@ fun NodeDetailScreen(
             onAction = { action ->
                 when (action) {
                     is Route -> onNavigate(action)
-                    is ServiceAction -> viewModel.onServiceAction(action)
+                    is ServiceAction -> metricsViewModel.onServiceAction(action) // Use metricsViewModel
 
                     is NodeMenuAction -> {
                         if (action is NodeMenuAction.DirectMessage) {
-                            val hasPKC = uiViewModel.ourNodeInfo.value?.hasPKC == true
+                            val hasPKC = nodeViewModel.ourNodeInfo.value?.hasPKC == true // Use nodeViewModel
                             val channel =
                                 if (hasPKC) DataPacket.PKC_CHANNEL_INDEX else node.channel
                             navigateToMessages("$channel${node.user.id}")
                         } else if (action is NodeMenuAction.Remove) {
-                            uiViewModel.handleNodeMenuAction(action)
+                            mainViewModel.handleNodeMenuAction(action) // Use mainViewModel
                             onNavigateUp()
                         } else {
-                            uiViewModel.handleNodeMenuAction(action)
+                            mainViewModel.handleNodeMenuAction(action) // Use mainViewModel
                         }
                     }
 

@@ -95,8 +95,10 @@ import com.geeksville.mesh.android.isGooglePlayAvailable
 import com.geeksville.mesh.android.permissionMissing
 import com.geeksville.mesh.model.BTScanModel
 import com.geeksville.mesh.model.BluetoothViewModel
-import com.geeksville.mesh.model.Node
-import com.geeksville.mesh.model.UIViewModel
+// import com.geeksville.mesh.model.Node // Will be from NodeRepository
+// import com.geeksville.mesh.model.UIViewModel // Will be removed
+import com.geeksville.mesh.ui.MainViewModel // Import MainViewModel
+import com.geeksville.mesh.database.NodeRepository // Import NodeRepository
 import com.geeksville.mesh.navigation.ConfigRoute
 import com.geeksville.mesh.navigation.RadioConfigRoutes
 import com.geeksville.mesh.navigation.Route
@@ -125,7 +127,8 @@ fun String?.isIPAddress(): Boolean {
 @Suppress("CyclomaticComplexMethod", "LongMethod", "MagicNumber")
 @Composable
 fun ConnectionsScreen(
-    uiViewModel: UIViewModel = hiltViewModel(),
+    mainViewModel: MainViewModel = hiltViewModel(), // Use MainViewModel
+    nodeRepository: NodeRepository = hiltViewModel(), // Use NodeRepository
     scanModel: BTScanModel = hiltViewModel(),
     bluetoothViewModel: BluetoothViewModel = hiltViewModel(),
     radioConfigViewModel: RadioConfigViewModel = hiltViewModel(),
@@ -134,17 +137,17 @@ fun ConnectionsScreen(
     onConfigNavigate: (Route) -> Unit
 ) {
     val radioConfigState by radioConfigViewModel.radioConfigState.collectAsStateWithLifecycle()
-    val config by uiViewModel.localConfig.collectAsState()
+    val config by mainViewModel.localConfig.collectAsState() // Use mainViewModel
     val currentRegion = config.lora.region
     val scrollState = rememberScrollState()
     val scanStatusText by scanModel.errorText.observeAsState("")
-    val connectionState by uiViewModel.connectionState.collectAsState(MeshService.ConnectionState.DISCONNECTED)
+    val connectionState by mainViewModel.connectionState.collectAsState(MeshService.ConnectionState.DISCONNECTED) // Use mainViewModel
     val devices by scanModel.devices.observeAsState(emptyMap())
     val scanning by scanModel.spinner.observeAsState(false)
-    val receivingLocationUpdates by uiViewModel.receivingLocationUpdates.collectAsState(false)
+    val receivingLocationUpdates by mainViewModel.receivingLocationUpdates.collectAsState(false) // Use mainViewModel
     val context = LocalContext.current
     val app = (context.applicationContext as GeeksvilleApplication)
-    val info by uiViewModel.myNodeInfo.collectAsState()
+    val info by mainViewModel.myNodeInfo.collectAsState() // Use mainViewModel for global myNodeInfo
     val selectedDevice by scanModel.selectedNotNullFlow.collectAsStateWithLifecycle()
     val bluetoothEnabled by bluetoothViewModel.enabled.observeAsState()
     val regionUnset = currentRegion == ConfigProtos.Config.LoRaConfig.RegionCode.UNSET &&
@@ -174,12 +177,12 @@ fun ConnectionsScreen(
     val isGpsDisabled = context.gpsDisabled()
     LaunchedEffect(isGpsDisabled) {
         if (isGpsDisabled) {
-            uiViewModel.showSnackbar(context.getString(R.string.location_disabled))
+            mainViewModel.showSnackbar(context.getString(R.string.location_disabled)) // Use mainViewModel
         }
     }
     LaunchedEffect(bluetoothEnabled) {
         if (bluetoothEnabled == false) {
-            uiViewModel.showSnackbar(context.getString(R.string.bluetooth_disabled))
+            mainViewModel.showSnackbar(context.getString(R.string.bluetooth_disabled)) // Use mainViewModel
         }
     }
     // when scanning is true - wait 10000ms and then stop scanning
@@ -208,11 +211,11 @@ fun ConnectionsScreen(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
         onResult = { permissions ->
             if (permissions.entries.all { it.value }) {
-                uiViewModel.setProvideLocation(true)
-                uiViewModel.meshService?.startProvideLocation()
+                mainViewModel.setProvideLocation(true) // Use mainViewModel
+                // mainViewModel.meshService?.startProvideLocation() // Already handled by setProvideLocation
             } else {
                 debug("User denied location permission")
-                uiViewModel.showSnackbar(context.getString(R.string.why_background_required))
+                mainViewModel.showSnackbar(context.getString(R.string.why_background_required)) // Use mainViewModel
             }
             bluetoothViewModel.permissionsUpdated()
         }
@@ -223,16 +226,10 @@ fun ConnectionsScreen(
         onResult = { permissions ->
             if (permissions.entries.all { it.value }) {
                 info("Bluetooth permissions granted")
-                // We need to call the scan function which is in the Fragment
-                // Since we can't directly call scanLeDevice() from Composable,
-                // we might need to rethink how scanning is triggered or
-                // pass the scan trigger as a lambda.
-                // For now, let's assume we trigger the scan outside the Composable
-                // after permissions are granted. We can add a callback to the ViewModel.
                 scanModel.startScan()
             } else {
                 warn("Bluetooth permissions denied")
-                uiViewModel.showSnackbar(context.permissionMissing)
+                mainViewModel.showSnackbar(context.permissionMissing) // Use mainViewModel
             }
             bluetoothViewModel.permissionsUpdated()
         }
@@ -279,8 +276,8 @@ fun ConnectionsScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            val isConnected by uiViewModel.isConnected.collectAsState(false)
-            val ourNode by uiViewModel.ourNodeInfo.collectAsState()
+            val isConnected by mainViewModel.isConnectedFlow.collectAsState(false) // Use mainViewModel
+            val ourNode by nodeRepository.ourNodeInfo.collectAsState() // Use nodeRepository
             if (isConnected) {
                 ourNode?.let { node ->
                     Row(
@@ -471,18 +468,18 @@ fun ConnectionsScreen(
 
                 LaunchedEffect(ourNode) {
                     if (ourNode != null) {
-                        uiViewModel.refreshProvideLocation()
+                        mainViewModel.refreshProvideLocation() // Use mainViewModel
                     }
                 }
                 AnimatedVisibility(isConnected) {
-                    val provideLocation by uiViewModel.provideLocation.collectAsState(false)
+                    val provideLocation by mainViewModel.provideLocation.collectAsState(false) // Use mainViewModel
                     LaunchedEffect(provideLocation) {
                         if (provideLocation) {
                             if (!context.hasLocationPermission()) {
                                 debug("Requesting location permission for providing location")
                                 showLocationRationaleDialog = true
                             } else if (isGpsDisabled) {
-                                uiViewModel.showSnackbar(context.getString(R.string.location_disabled))
+                                mainViewModel.showSnackbar(context.getString(R.string.location_disabled)) // Use mainViewModel
                             }
                         }
                     }
@@ -492,7 +489,7 @@ fun ConnectionsScreen(
                             .toggleable(
                                 value = provideLocation,
                                 onValueChange = { checked ->
-                                    uiViewModel.setProvideLocation(checked)
+                                    mainViewModel.setProvideLocation(checked) // Use mainViewModel
                                 },
                                 enabled = !isGpsDisabled
                             )
@@ -687,7 +684,7 @@ fun ConnectionsScreen(
                     Button(onClick = {
                         showReportBugDialog = false
                         reportError("Clicked Report A Bug")
-                        uiViewModel.showSnackbar("Bug report sent!")
+                        mainViewModel.showSnackbar("Bug report sent!") // Use mainViewModel
                     }) {
                         Text(stringResource(R.string.report))
                     }

@@ -59,14 +59,18 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.geeksville.mesh.R
-import com.geeksville.mesh.model.Contact
-import com.geeksville.mesh.model.UIViewModel
+// import com.geeksville.mesh.model.Contact // Will use Contact from ContactViewModel
+// import com.geeksville.mesh.model.UIViewModel // Will be replaced by ContactViewModel
 import java.util.concurrent.TimeUnit
+
+// Import ContactViewModel and its Contact data class
+import com.geeksville.mesh.ui.contact.ContactViewModel
+import com.geeksville.mesh.ui.contact.ContactViewModel.Contact
 
 @Suppress("LongMethod")
 @Composable
 fun ContactsScreen(
-    uiViewModel: UIViewModel = hiltViewModel(),
+    contactViewModel: ContactViewModel = hiltViewModel(), // Changed to ContactViewModel
     onNavigateToMessages: (String) -> Unit = {}
 ) {
     var showMuteDialog by remember { mutableStateOf(false) }
@@ -77,7 +81,7 @@ fun ContactsScreen(
     val isSelectionModeActive by remember { derivedStateOf { selectedContactKeys.isNotEmpty() } }
 
     // State for contacts list
-    val contacts by uiViewModel.contactList.collectAsStateWithLifecycle()
+    val contacts by contactViewModel.contactList.collectAsStateWithLifecycle() // Use contactViewModel
 
     // Derived state for selected contacts and count
     val selectedContacts = remember(contacts, selectedContactKeys) {
@@ -150,7 +154,7 @@ fun ContactsScreen(
         onDismiss = { showDeleteDialog = false },
         onConfirm = {
             showDeleteDialog = false
-            uiViewModel.deleteContacts(selectedContactKeys.toList())
+            contactViewModel.deleteContacts(selectedContactKeys.toList()) // Use contactViewModel
             selectedContactKeys.clear()
         }
     )
@@ -160,7 +164,7 @@ fun ContactsScreen(
         onDismiss = { showMuteDialog = false },
         onConfirm = { muteUntil ->
             showMuteDialog = false
-            uiViewModel.setMuteUntil(selectedContactKeys.toList(), muteUntil)
+            contactViewModel.setMuteUntil(selectedContactKeys.toList(), muteUntil) // Use contactViewModel
             selectedContactKeys.clear()
         }
     )

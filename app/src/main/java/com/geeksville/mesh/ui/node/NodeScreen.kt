@@ -42,11 +42,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.geeksville.mesh.DataPacket
 import com.geeksville.mesh.model.DeviceVersion
-import com.geeksville.mesh.model.Node
-import com.geeksville.mesh.model.UIViewModel
+import com.geeksville.mesh.model.Node // Keep this for showSharedContact type
+import com.geeksville.mesh.model.UIViewModel // Keep for uiViewModel temporary injection for addSharedContact
+import com.geeksville.mesh.ui.MainViewModel // Import MainViewModel
 import com.geeksville.mesh.ui.common.components.rememberTimeTickWithLifecycle
 import com.geeksville.mesh.ui.node.components.NodeFilterTextField
 import com.geeksville.mesh.ui.node.components.NodeItem
+// Import NodeViewModel
+import com.geeksville.mesh.ui.node.NodeViewModel
 import com.geeksville.mesh.ui.node.components.NodeMenuAction
 import com.geeksville.mesh.ui.sharing.AddContactFAB
 import com.geeksville.mesh.ui.sharing.SharedContactDialog
@@ -56,19 +59,20 @@ import com.geeksville.mesh.ui.sharing.supportsQrCodeSharing
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 fun NodeScreen(
-    model: UIViewModel = hiltViewModel(),
+    nodeViewModel: NodeViewModel = hiltViewModel(), // uiViewModel removed
+    mainViewModel: MainViewModel = hiltViewModel(),
     navigateToMessages: (String) -> Unit,
     navigateToNodeDetails: (Int) -> Unit,
 ) {
-    val state by model.nodesUiState.collectAsStateWithLifecycle()
+    val state by nodeViewModel.nodesUiState.collectAsStateWithLifecycle()
 
-    val nodes by model.nodeList.collectAsStateWithLifecycle()
-    val ourNode by model.ourNodeInfo.collectAsStateWithLifecycle()
+    val nodes by nodeViewModel.nodeList.collectAsStateWithLifecycle()
+    val ourNode by nodeViewModel.ourNodeInfo.collectAsStateWithLifecycle()
 
     val listState = rememberLazyListState()
 
     val currentTimeMillis = rememberTimeTickWithLifecycle()
-    val connectionState by model.connectionState.collectAsStateWithLifecycle()
+    val isConnected by mainViewModel.isConnectedFlow.collectAsStateWithLifecycle()
 
     var showSharedContact: Node? by remember { mutableStateOf(null) }
     if (showSharedContact != null) {
@@ -98,17 +102,17 @@ fun NodeScreen(
                         .graphicsLayer(alpha = animatedAlpha)
                         .padding(8.dp),
                     filterText = state.filter,
-                    onTextChange = model::setNodeFilterText,
+                    onTextChange = nodeViewModel::setNodeFilterText,
                     currentSortOption = state.sort,
-                    onSortSelect = model::setSortOption,
+                    onSortSelect = nodeViewModel::setSortOption,
                     includeUnknown = state.includeUnknown,
-                    onToggleIncludeUnknown = model::toggleIncludeUnknown,
+                    onToggleIncludeUnknown = nodeViewModel::toggleIncludeUnknown,
                     onlyOnline = state.onlyOnline,
-                    onToggleOnlyOnline = model::toggleOnlyOnline,
+                    onToggleOnlyOnline = nodeViewModel::toggleOnlyOnline,
                     onlyDirect = state.onlyDirect,
-                    onToggleOnlyDirect = model::toggleOnlyDirect,
+                    onToggleOnlyDirect = nodeViewModel::toggleOnlyDirect,
                     showDetails = state.showDetails,
-                    onToggleShowDetails = model::toggleShowDetails,
+                    onToggleShowDetails = nodeViewModel::toggleShowDetails,
                 )
             }
 
@@ -122,26 +126,27 @@ fun NodeScreen(
                     tempInFahrenheit = state.tempInFahrenheit,
                     onAction = { menuItem ->
                         when (menuItem) {
-                            is NodeMenuAction.Remove -> model.removeNode(node.num)
-                            is NodeMenuAction.Ignore -> model.ignoreNode(node)
-                            is NodeMenuAction.Favorite -> model.favoriteNode(node)
+                            // Call actions on mainViewModel now
+                            is NodeMenuAction.Remove -> mainViewModel.removeNode(node.num)
+                            is NodeMenuAction.Ignore -> mainViewModel.ignoreNode(node)
+                            is NodeMenuAction.Favorite -> mainViewModel.favoriteNode(node)
                             is NodeMenuAction.DirectMessage -> {
-                                val hasPKC = model.ourNodeInfo.value?.hasPKC == true && node.hasPKC
+                                val hasPKC = nodeViewModel.ourNodeInfo.value?.hasPKC == true && node.hasPKC // ourNodeInfo still from nodeViewModel for this check
                                 val channel =
                                     if (hasPKC) DataPacket.PKC_CHANNEL_INDEX else node.channel
                                 navigateToMessages("$channel${node.user.id}")
                             }
-
-                            is NodeMenuAction.RequestUserInfo -> model.requestUserInfo(node.num)
-                            is NodeMenuAction.RequestPosition -> model.requestPosition(node.num)
-                            is NodeMenuAction.TraceRoute -> model.requestTraceroute(node.num)
+                            is NodeMenuAction.RequestUserInfo -> mainViewModel.requestUserInfo(node.num)
+                            is NodeMenuAction.RequestPosition -> mainViewModel.requestPosition(node.num)
+                            is NodeMenuAction.TraceRoute -> mainViewModel.requestTraceroute(node.num)
+                            // Navigation and local screen state changes remain
                             is NodeMenuAction.MoreDetails -> navigateToNodeDetails(node.num)
                             is NodeMenuAction.Share -> showSharedContact = node
                         }
                     },
                     expanded = state.showDetails,
                     currentTimeMillis = currentTimeMillis,
-                    isConnected = connectionState.isConnected(),
+                    isConnected = isConnected,
                 )
             }
         }
@@ -152,15 +157,15 @@ fun NodeScreen(
         AnimatedVisibility(
             modifier = Modifier.align(Alignment.BottomEnd),
             visible = !listState.isScrollInProgress &&
-                    connectionState.isConnected() &&
+                    isConnected &&
                     shareCapable
         ) {
             @Suppress("NewApi")
             (
                 AddContactFAB(
-                    model = model,
+                    nodeViewModel = nodeViewModel, // Pass nodeViewModel
                     onSharedContactImport = { contact ->
-                        model.addSharedContact(contact)
+                        nodeViewModel.addSharedContact(contact) // Call on nodeViewModel
                     }
                 )
             )

@@ -15,7 +15,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.geeksville.mesh.model
+package com.geeksville.mesh.ui.debug // Updated package
 
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
@@ -42,6 +42,19 @@ import com.geeksville.mesh.Portnums.PortNum
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import com.geeksville.mesh.repository.datastore.RadioConfigRepository
+import android.net.Uri // For saveMessagesCSV
+import com.geeksville.mesh.database.NodeRepository // For saveMessagesCSV
+import com.geeksville.mesh.MeshProtos // For saveMessagesCSV (Position)
+import com.geeksville.mesh.Position // For saveMessagesCSV (Position type)
+import com.geeksville.mesh.util.positionToMeter // For saveMessagesCSV
+import java.io.BufferedWriter // For saveMessagesCSV
+import java.io.FileNotFoundException // For saveMessagesCSV
+import java.io.FileWriter // For saveMessagesCSV
+import java.text.SimpleDateFormat // For saveMessagesCSV
+import kotlinx.coroutines.flow.first // For saveMessagesCSV
+import kotlinx.coroutines.withContext // For saveMessagesCSV
+import kotlin.math.roundToInt // For saveMessagesCSV
+
 
 data class SearchMatch(
     val logIndex: Int,
@@ -158,8 +171,10 @@ class LogFilterManager {
 
 @HiltViewModel
 class DebugViewModel @Inject constructor(
+    private val app: Application, // Added Application for contentResolver
     private val meshLogRepository: MeshLogRepository,
     private val radioConfigRepository: RadioConfigRepository,
+    private val nodeRepository: NodeRepository // Added NodeRepository
 ) : ViewModel(), Logging {
 
     val meshLog: StateFlow<ImmutableList<UiMeshLog>> = meshLogRepository.getAllLogs()
@@ -295,4 +310,108 @@ class DebugViewModel @Inject constructor(
         }
 
     fun setSelectedLogId(id: String?) { _selectedLogId.value = id }
+
+    // Copied from UIViewModel.kt
+    /**
+     * Write the persisted packet data out to a CSV file in the specified location.
+     */
+    fun saveMessagesCSV(uri: Uri) {
+        viewModelScope.launch(Dispatchers.Main) {
+            val myNodeNum = radioConfigRepository.myNodeInfo.value?.myNodeNum ?: return@launch
+
+            val nodes = nodeRepository.nodeDBbyNum.value
+
+            val positionToPos: (MeshProtos.Position?) -> com.geeksville.mesh.Position? = { meshPosition ->
+                meshPosition?.let { com.geeksville.mesh.Position(it) }.takeIf {
+                    it?.isValid() == true
+                }
+            }
+
+            writeToUri(uri) { writer ->
+                val nodePositions = mutableMapOf<Int, MeshProtos.Position?>()
+
+                writer.appendLine("\"date\",\"time\",\"from\",\"sender name\",\"sender lat\",\"sender long\",\"rx lat\",\"rx long\",\"rx elevation\",\"rx snr\",\"distance\",\"hop limit\",\"payload\"")
+
+                val dateFormat =
+                    SimpleDateFormat("\"yyyy-MM-dd\",\"HH:mm:ss\"", Locale.getDefault())
+                meshLogRepository.getAllLogsInReceiveOrder(Int.MAX_VALUE).first()
+                    .forEach { packet ->
+                        packet.nodeInfo?.let { nodeInfo ->
+                            positionToPos.invoke(nodeInfo.position)?.let {
+                                nodePositions[nodeInfo.num] = nodeInfo.position
+                            }
+                        }
+
+                        packet.meshPacket?.let { proto ->
+                            packet.position?.let { position ->
+                                positionToPos.invoke(position)?.let {
+                                    nodePositions[proto.from.takeIf { it != 0 } ?: myNodeNum] =
+                                        position
+                                }
+                            }
+
+                            if (proto.rxSnr != 0.0f) {
+                                val rxDateTime = dateFormat.format(packet.received_date)
+                                val rxFrom = proto.from.toUInt()
+                                val senderName = nodes[proto.from]?.user?.longName ?: ""
+
+                                val senderPosition = nodePositions[proto.from]
+                                val senderPos = positionToPos.invoke(senderPosition)
+                                val senderLat = senderPos?.latitude ?: ""
+                                val senderLong = senderPos?.longitude ?: ""
+
+                                val rxPosition = nodePositions[myNodeNum]
+                                val rxPos = positionToPos.invoke(rxPosition)
+                                val rxLat = rxPos?.latitude ?: ""
+                                val rxLong = rxPos?.longitude ?: ""
+                                val rxAlt = rxPos?.altitude ?: ""
+                                val rxSnr = proto.rxSnr
+
+                                val dist = if (senderPos == null || rxPos == null) {
+                                    ""
+                                } else {
+                                    positionToMeter(
+                                        rxPosition!!,
+                                        senderPosition!!
+                                    ).roundToInt().toString()
+                                }
+
+                                val hopLimit = proto.hopLimit
+
+                                val payload = when {
+                                    proto.decoded.portnumValue !in setOf(
+                                        PortNum.TEXT_MESSAGE_APP_VALUE,
+                                        PortNum.RANGE_TEST_APP_VALUE,
+                                    ) -> "<${proto.decoded.portnum}>"
+                                    proto.hasDecoded() -> proto.decoded.payload.toStringUtf8()
+                                        .replace("\"", "\"\"")
+                                    proto.hasEncrypted() -> "${proto.encrypted.size()} encrypted bytes"
+                                    else -> ""
+                                }
+                                writer.appendLine("$rxDateTime,\"$rxFrom\",\"$senderName\",\"$senderLat\",\"$senderLong\",\"$rxLat\",\"$rxLong\",\"$rxAlt\",\"$rxSnr\",\"$dist\",\"$hopLimit\",\"$payload\"")
+                            }
+                        }
+                    }
+            }
+        }
+    }
+
+    private suspend inline fun writeToUri(
+        uri: Uri,
+        crossinline block: suspend (BufferedWriter) -> Unit
+    ) {
+        withContext(Dispatchers.IO) {
+            try {
+                app.contentResolver.openFileDescriptor(uri, "wt")?.use { parcelFileDescriptor ->
+                    FileWriter(parcelFileDescriptor.fileDescriptor).use { fileWriter ->
+                        BufferedWriter(fileWriter).use { writer ->
+                            block.invoke(writer)
+                        }
+                    }
+                }
+            } catch (ex: FileNotFoundException) {
+                errormsg("Can't write file error: ${ex.message}")
+            }
+        }
+    }
 }

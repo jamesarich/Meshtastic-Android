@@ -17,7 +17,7 @@
 
 package com.geeksville.mesh.ui
 
-import com.geeksville.mesh.model.getInitials
+import com.geeksville.mesh.util.getInitials // Updated import
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

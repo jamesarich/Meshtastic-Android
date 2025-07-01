@@ -21,7 +21,7 @@ import com.geeksville.mesh.*
 import com.geeksville.mesh.android.Logging
 import com.geeksville.mesh.concurrent.handledLaunch
 import com.geeksville.mesh.model.Channel
-import com.geeksville.mesh.model.getInitials
+import com.geeksville.mesh.util.getInitials // Updated import
 import com.google.protobuf.ByteString
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject

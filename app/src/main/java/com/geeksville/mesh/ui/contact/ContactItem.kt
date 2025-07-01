@@ -49,14 +49,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.geeksville.mesh.R
-import com.geeksville.mesh.model.Contact
+// import com.geeksville.mesh.model.Contact // Will use ContactViewModel.Contact
+import com.geeksville.mesh.ui.contact.ContactViewModel // For Contact type
 import com.geeksville.mesh.ui.common.theme.AppTheme
 import androidx.compose.ui.graphics.vector.ImageVector
 
 @Suppress("LongMethod")
 @Composable
 fun ContactItem(
-    contact: Contact,
+    contact: ContactViewModel.Contact, // Updated type
     selected: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {},
@@ -179,7 +180,7 @@ fun ContactItem(
 private fun ContactItemPreview() {
     AppTheme {
         ContactItem(
-            contact = Contact(
+            contact = ContactViewModel.Contact( // Use ContactViewModel.Contact
                 contactKey = "0^all",
                 shortName = stringResource(R.string.some_username),
                 longName = stringResource(R.string.unknown_username),

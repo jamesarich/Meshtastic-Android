@@ -32,7 +32,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.geeksville.mesh.R
 import com.geeksville.mesh.model.BluetoothViewModel
-import com.geeksville.mesh.model.UIViewModel
+// import com.geeksville.mesh.model.UIViewModel // Will be replaced
+import com.geeksville.mesh.ui.MainViewModel // Import MainViewModel
 import com.geeksville.mesh.ui.TopLevelDestination.Companion.isTopLevel
 import com.geeksville.mesh.ui.debug.DebugScreen
 import kotlinx.serialization.Serializable
@@ -80,7 +81,7 @@ fun NavDestination.showLongNameTitle(): Boolean {
 @Composable
 fun NavGraph(
     modifier: Modifier = Modifier,
-    uIViewModel: UIViewModel = hiltViewModel(),
+    mainViewModel: MainViewModel = hiltViewModel(), // Changed to MainViewModel
     bluetoothViewModel: BluetoothViewModel = hiltViewModel(),
     navController: NavHostController = rememberNavController(),
 ) {
@@ -90,7 +91,7 @@ fun NavGraph(
         modifier = modifier,
     ) {
         composable<Route.Dispatcher> {
-            val isConnected by uIViewModel.isConnected.collectAsStateWithLifecycle(false)
+            val isConnected by mainViewModel.isConnectedFlow.collectAsStateWithLifecycle(false) // Use mainViewModel
             LaunchedEffect(isConnected) {
                 if (isConnected) {
                     navController.navigate(NodesRoutes.NodesGraph) {
@@ -103,12 +104,12 @@ fun NavGraph(
                 }
             }
         }
-        contactsGraph(navController, uIViewModel)
-        nodesGraph(navController, uIViewModel)
-        mapGraph(navController, uIViewModel)
-        channelsGraph(navController, uIViewModel)
-        connectionsGraph(navController, uIViewModel, bluetoothViewModel)
+        contactsGraph(navController, mainViewModel) // Pass mainViewModel
+        nodesGraph(navController, mainViewModel) // Pass mainViewModel
+        mapGraph(navController, mainViewModel) // Pass mainViewModel
+        channelsGraph(navController, mainViewModel) // Pass mainViewModel
+        connectionsGraph(navController, mainViewModel, bluetoothViewModel) // Pass mainViewModel
         composable<Route.DebugPanel> { DebugScreen() }
-        radioConfigGraph(navController, uIViewModel)
+        radioConfigGraph(navController, mainViewModel) // Pass mainViewModel
     }
 }

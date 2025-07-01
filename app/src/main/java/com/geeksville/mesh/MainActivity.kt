@@ -69,7 +69,10 @@ import com.geeksville.mesh.ui.common.theme.AppTheme
 import com.geeksville.mesh.ui.common.theme.MODE_DYNAMIC
 import com.geeksville.mesh.util.Exceptions
 import com.geeksville.mesh.util.LanguageUtils
+import android.content.SharedPreferences // For injected SharedPreferences
+import javax.inject.Named // For Named injection
 import com.geeksville.mesh.util.getPackageInfoCompat
+import com.geeksville.mesh.ui.debug.DebugViewModel // Import DebugViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
 import javax.inject.Inject
@@ -77,10 +80,22 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity(), Logging {
     private val bluetoothViewModel: BluetoothViewModel by viewModels()
-    private val model: UIViewModel by viewModels()
+    // private val model: UIViewModel by viewModels() // UIViewModel will be removed
+    // MainViewModel might be needed if MainActivity directly calls its methods, let's see.
+    // For now, only injecting SharedPreferences for direct preference access.
+    // If model.setTheme or model.showAlert were used directly by MainActivity, it would need MainViewModel.
+
+    @Inject
+    @Named("ui-prefs") // Assuming "ui-prefs" is the name for this SharedPreferences
+    internal lateinit var uiPrefs: SharedPreferences
 
     @Inject
     internal lateinit var serviceRepository: ServiceRepository
+
+    // Access MainViewModel if its methods (like showAlert, setTheme) are used directly by MainActivity
+    private val mainViewModel: MainViewModel by viewModels()
+    private val debugViewModel: com.geeksville.mesh.ui.debug.DebugViewModel by viewModels() // Inject DebugViewModel
+
 
     private val bluetoothPermissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -111,7 +126,8 @@ class MainActivity : AppCompatActivity(), Logging {
         super.onCreate(savedInstanceState)
 
         if (savedInstanceState == null) {
-            val prefs = UIViewModel.getPreferences(this)
+            // val prefs = UIViewModel.getPreferences(this) // Old way
+            val prefs = uiPrefs // Use injected SharedPreferences
             // First run: migrate in-app language prefs to appcompat
             val lang = prefs.getString("lang", LanguageUtils.SYSTEM_DEFAULT)
             if (lang != LanguageUtils.SYSTEM_MANAGED) LanguageUtils.migrateLanguagePrefs(prefs)
@@ -126,7 +142,7 @@ class MainActivity : AppCompatActivity(), Logging {
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
-            val theme by model.theme.collectAsState()
+            val theme by mainViewModel.theme.collectAsState() // Use mainViewModel
             val dynamic = theme == MODE_DYNAMIC
             val dark = when (theme) {
                 AppCompatDelegate.MODE_NIGHT_YES -> true
@@ -146,7 +162,8 @@ class MainActivity : AppCompatActivity(), Logging {
                     }
                 }
                 MainScreen(
-                    uIViewModel = model,
+                    // uIViewModel = model, // Pass mainViewModel instead
+                    mainViewModel = mainViewModel, // Pass mainViewModel
                     bluetoothViewModel = bluetoothViewModel,
                     onAction = ::onMainMenuAction,
                 )
@@ -245,7 +262,7 @@ class MainActivity : AppCompatActivity(), Logging {
         ActivityResultContracts.StartActivityForResult()
     ) {
         if (it.resultCode == RESULT_OK) {
-            it.data?.data?.let { file_uri -> model.saveMessagesCSV(file_uri) }
+            it.data?.data?.let { file_uri -> debugViewModel.saveMessagesCSV(file_uri) } // Use debugViewModel
         }
     }
 
@@ -262,7 +279,7 @@ class MainActivity : AppCompatActivity(), Logging {
             if (shouldShowRequestPermissionRationale(notificationPermissions)) {
                 val title = getString(R.string.notification_required)
                 val message = getString(R.string.why_notification_required)
-                model.showAlert(
+                mainViewModel.showAlert( // Use mainViewModel
                     title = title,
                     message = message,
                     onConfirm = {
@@ -277,7 +294,7 @@ class MainActivity : AppCompatActivity(), Logging {
 
     @Suppress("MagicNumber")
     private fun checkAlertDnD() {
-        val prefs = UIViewModel.getPreferences(this)
+        val prefs = uiPrefs
         val rationaleShown = prefs.getBoolean("dnd_rationale_shown", false)
         if (!rationaleShown && hasNotificationPermission()) {
             fun showAlertAppNotificationSettings() {
@@ -286,7 +303,7 @@ class MainActivity : AppCompatActivity(), Logging {
                 intent.putExtra(Settings.EXTRA_CHANNEL_ID, "my_alerts")
                 startActivity(intent)
             }
-            model.showAlert(
+            mainViewModel.showAlert( // Use mainViewModel
                 title = getString(R.string.alerts_dnd_request_title),
                 html = getString(R.string.alerts_dnd_request_text),
                 onConfirm = {
@@ -358,7 +375,7 @@ class MainActivity : AppCompatActivity(), Logging {
     override fun onStart() {
         super.onStart()
         bluetoothViewModel.enabled.observe(this) { enabled ->
-            if (!enabled && !requestedEnable && model.selectedBluetooth) {
+            if (!enabled && !requestedEnable && bluetoothViewModel.selectedBluetooth) { // Use bluetoothViewModel
                 requestedEnable = true
                 if (hasBluetoothPermission()) {
                     val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
@@ -367,7 +384,7 @@ class MainActivity : AppCompatActivity(), Logging {
                     val bluetoothPermissions = getBluetoothPermissions()
                     val title = getString(R.string.required_permissions)
                     val message = permissionMissing
-                    model.showAlert(
+                    mainViewModel.showAlert( // Use mainViewModel
                         title = title,
                         message = message,
                         onConfirm = {
@@ -442,16 +459,16 @@ class MainActivity : AppCompatActivity(), Logging {
         )
 
         // Load preferences and its value
-        val prefs = UIViewModel.getPreferences(this)
-        val theme = prefs.getInt("theme", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-        debug("Theme from prefs: $theme")
+        // val prefs = uiPrefs // Not needed here as MainViewModel handles theme state
+        val theme = mainViewModel.theme.value // Get current theme from MainViewModel
+        debug("Theme from mainViewModel: $theme")
         // map theme keys to function to set theme
-        model.showAlert(
+        mainViewModel.showAlert( // Use mainViewModel
             title = getString(R.string.choose_theme),
             message = "",
             choices = styles.mapValues { (_, value) ->
                 {
-                    model.setTheme(value)
+                    mainViewModel.setTheme(value) // Use mainViewModel
                 }
             },
         )
@@ -469,7 +486,7 @@ class MainActivity : AppCompatActivity(), Logging {
             }
         }
 
-        model.showAlert(
+        mainViewModel.showAlert( // Use mainViewModel
             title = getString(R.string.preferences_language),
             message = "",
             choices = langMap,

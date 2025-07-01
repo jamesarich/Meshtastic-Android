@@ -68,7 +68,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.geeksville.mesh.ClientOnlyProtos.DeviceProfile
 import com.geeksville.mesh.R
-import com.geeksville.mesh.model.UIViewModel
+// import com.geeksville.mesh.model.UIViewModel // Will be removed
+import com.geeksville.mesh.ui.MainViewModel // Import MainViewModel
 import com.geeksville.mesh.navigation.AdminRoute
 import com.geeksville.mesh.navigation.ConfigRoute
 import com.geeksville.mesh.navigation.ModuleRoute
@@ -86,12 +87,13 @@ import kotlin.time.Duration.Companion.seconds
 fun RadioConfigScreen(
     modifier: Modifier = Modifier,
     viewModel: RadioConfigViewModel = hiltViewModel(),
-    uiViewModel: UIViewModel = hiltViewModel(),
+    mainViewModel: MainViewModel = hiltViewModel(), // Inject MainViewModel
     onNavigate: (Route) -> Unit = {}
 ) {
     val node by viewModel.destNode.collectAsStateWithLifecycle()
-    val ourNode by uiViewModel.ourNodeInfo.collectAsStateWithLifecycle()
-    val isLocal = node?.num == ourNode?.num
+    val radioState by viewModel.radioConfigState.collectAsStateWithLifecycle() // Use this for isLocal
+    val isLocal = radioState.isLocal
+
     val nodeName: String? = node?.user?.longName?.let {
         if (!isLocal) {
             "$it (" + stringResource(R.string.remote) + ")"
@@ -101,12 +103,12 @@ fun RadioConfigScreen(
     }
 
     nodeName?.let {
-        uiViewModel.setTitle(it)
+        mainViewModel.setTitle(it) // Use mainViewModel
     }
 
-    val excludedModulesUnlocked by uiViewModel.excludedModulesUnlocked.collectAsStateWithLifecycle()
+    val excludedModulesUnlocked by mainViewModel.excludedModulesUnlocked.collectAsStateWithLifecycle() // Use mainViewModel
 
-    val state by viewModel.radioConfigState.collectAsStateWithLifecycle()
+    // val state by viewModel.radioConfigState.collectAsStateWithLifecycle() // Already got radioState
     var isWaiting by remember { mutableStateOf(false) }
     if (isWaiting) {
         PacketResponseStateDialog(
@@ -372,7 +374,7 @@ private const val UNLOCK_TIMEOUT_SECONDS = 3 // Timeout in seconds to reset the 
 @Composable
 fun RadioConfigMenuActions(
     modifier: Modifier = Modifier,
-    viewModel: UIViewModel = hiltViewModel(),
+    mainViewModel: MainViewModel = hiltViewModel(), // Use MainViewModel
 ) {
     val context = LocalContext.current
     var counter by remember { mutableIntStateOf(0) }
@@ -387,7 +389,7 @@ fun RadioConfigMenuActions(
         onClick = {
             counter++
             if (counter == UNLOCK_CLICK_COUNT) {
-                viewModel.unlockExcludedModules()
+                mainViewModel.unlockExcludedModules() // Use mainViewModel
                 Toast.makeText(
                     context,
                     context.getString(R.string.modules_unlocked),

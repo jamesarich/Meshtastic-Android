@@ -23,7 +23,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navDeepLink
 import androidx.navigation.navigation
 import androidx.navigation.toRoute
-import com.geeksville.mesh.model.UIViewModel
+// import com.geeksville.mesh.model.UIViewModel // Will be replaced by MainViewModel
+import com.geeksville.mesh.ui.MainViewModel // Import MainViewModel
 import com.geeksville.mesh.ui.contact.ContactsScreen
 import com.geeksville.mesh.ui.message.MessageScreen
 import com.geeksville.mesh.ui.message.QuickChatScreen
@@ -49,14 +50,14 @@ sealed class ContactsRoutes {
 
 fun NavGraphBuilder.contactsGraph(
     navController: NavHostController,
-    uiViewModel: UIViewModel,
+    mainViewModel: MainViewModel, // Changed to MainViewModel
 ) {
     navigation<ContactsRoutes.ContactsGraph>(
         startDestination = ContactsRoutes.Contacts,
     ) {
         composable<ContactsRoutes.Contacts> {
+            // ContactsScreen now uses hiltViewModel() for ContactViewModel internally
             ContactsScreen(
-                uiViewModel,
                 onNavigateToMessages = { navController.navigate(ContactsRoutes.Messages(it)) }
             )
         }
@@ -72,7 +73,8 @@ fun NavGraphBuilder.contactsGraph(
             MessageScreen(
                 contactKey = args.contactKey,
                 message = args.message,
-                viewModel = uiViewModel,
+                // viewModel = uiViewModel, // UIViewModel removed, MainViewModel will be hiltViewModel() inside if needed
+                mainViewModel = mainViewModel, // Pass mainViewModel
                 navigateToMessages = { navController.navigate(ContactsRoutes.Messages(it)) },
                 navigateToNodeDetails = { navController.navigate(NodesRoutes.NodeDetail(it)) },
                 onNavigateBack = navController::navigateUp,
@@ -88,13 +90,14 @@ fun NavGraphBuilder.contactsGraph(
         )
     ) { backStackEntry ->
         val message = backStackEntry.toRoute<ContactsRoutes.Share>().message
-        ShareScreen(uiViewModel) {
+        ShareScreen(mainViewModel) { // Pass mainViewModel to ShareScreen
             navController.navigate(ContactsRoutes.Messages(it, message)) {
                 popUpTo<ContactsRoutes.Share> { inclusive = true }
             }
         }
     }
     composable<ContactsRoutes.QuickChat> {
+        // QuickChatScreen uses hiltViewModel() for ContactViewModel internally
         QuickChatScreen()
     }
 }

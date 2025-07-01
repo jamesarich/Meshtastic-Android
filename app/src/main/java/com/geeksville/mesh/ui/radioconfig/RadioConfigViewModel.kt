@@ -43,7 +43,7 @@ import com.geeksville.mesh.config
 import com.geeksville.mesh.database.entity.MyNodeEntity
 import com.geeksville.mesh.deviceProfile
 import com.geeksville.mesh.model.Node
-import com.geeksville.mesh.model.getChannelList
+import com.geeksville.mesh.util.getChannelList // Updated import
 import com.geeksville.mesh.model.getStringResFrom
 import com.geeksville.mesh.model.toChannelSet
 import com.geeksville.mesh.moduleConfig

@@ -61,7 +61,8 @@ import com.geeksville.mesh.android.BuildUtils.errormsg
 import com.geeksville.mesh.android.getCameraPermissions
 import com.geeksville.mesh.model.DeviceVersion
 import com.geeksville.mesh.model.Node
-import com.geeksville.mesh.model.UIViewModel
+// import com.geeksville.mesh.model.UIViewModel // Will be replaced by NodeViewModel
+import com.geeksville.mesh.ui.node.NodeViewModel // Import NodeViewModel
 import com.geeksville.mesh.ui.common.components.CopyIconButton
 import com.geeksville.mesh.ui.common.components.SimpleAlertDialog
 import com.google.protobuf.ByteString
@@ -78,7 +79,7 @@ import java.net.MalformedURLException
 @Composable
 fun AddContactFAB(
     modifier: Modifier = Modifier,
-    model: UIViewModel = hiltViewModel(),
+    nodeViewModel: NodeViewModel = hiltViewModel(), // Changed parameter to NodeViewModel
     onSharedContactImport: (AdminProtos.SharedContact) -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -101,7 +102,7 @@ fun AddContactFAB(
 
     if (contactToImport != null) {
         val nodeNum = contactToImport?.nodeNum
-        val nodes by model.unfilteredNodeList.collectAsState()
+        val nodes by nodeViewModel.unfilteredNodeList.collectAsState() // Use nodeViewModel
         val node = nodes.find { it.num == nodeNum }
         SimpleAlertDialog(
             title = R.string.import_shared_contact,

@@ -51,7 +51,8 @@ import com.geeksville.mesh.MessageStatus
 import com.geeksville.mesh.R
 import com.geeksville.mesh.database.entity.Reaction
 import com.geeksville.mesh.model.Message
-import com.geeksville.mesh.model.UIViewModel
+import com.geeksville.mesh.model.UIViewModel // Keep for temporary uiViewModel injection
+import com.geeksville.mesh.ui.contact.ContactViewModel // Import ContactViewModel
 import com.geeksville.mesh.ui.message.components.MessageItem
 import com.geeksville.mesh.ui.message.components.ReactionDialog
 import com.geeksville.mesh.ui.node.components.NodeMenuAction
@@ -115,7 +116,9 @@ internal fun MessageList(
     onUnreadChanged: (Long) -> Unit,
     onSendReaction: (String, Int) -> Unit,
     onNodeMenuAction: (NodeMenuAction) -> Unit,
-    viewModel: UIViewModel,
+    contactViewModel: ContactViewModel,
+    mainViewModel: com.geeksville.mesh.ui.MainViewModel, // Added MainViewModel
+    nodeRepository: com.geeksville.mesh.database.NodeRepository, // Added NodeRepository
     contactKey: String,
     onReply: (Message?) -> Unit,
 ) {
@@ -133,9 +136,9 @@ internal fun MessageList(
             text = text,
             onConfirm = {
                 val deleteList: List<Long> = listOf(msg.uuid)
-                viewModel.deleteMessages(deleteList)
+                contactViewModel.deleteMessages(deleteList) // Use contactViewModel
                 showStatusDialog = null
-                viewModel.sendMessage(msg.text, contactKey)
+                contactViewModel.sendMessage(msg.text, contactKey) // Use contactViewModel
             },
             onDismiss = { showStatusDialog = null },
             resendOption = msg.status?.equals(MessageStatus.ERROR) ?: false
@@ -154,9 +157,10 @@ internal fun MessageList(
         value += uuid
     }
 
-    val nodes by viewModel.nodeList.collectAsStateWithLifecycle()
-    val ourNode by viewModel.ourNodeInfo.collectAsStateWithLifecycle()
-    val isConnected by viewModel.isConnected.collectAsStateWithLifecycle(false)
+    // Use nodeRepository and mainViewModel now
+    val nodes by nodeRepository.getNodes().collectAsStateWithLifecycle(initialValue = emptyList()) // Or a more specific flow if available
+    val ourNode by nodeRepository.ourNodeInfo.collectAsStateWithLifecycle()
+    val isConnected by mainViewModel.isConnectedFlow.collectAsStateWithLifecycle(false) // isConnectedFlow from MainViewModel
     val coroutineScope = rememberCoroutineScope()
     LazyColumn(
         modifier = modifier.fillMaxSize(),

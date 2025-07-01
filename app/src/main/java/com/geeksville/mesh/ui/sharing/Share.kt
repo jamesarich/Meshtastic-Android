@@ -40,27 +40,34 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.geeksville.mesh.R
-import com.geeksville.mesh.model.Contact
-import com.geeksville.mesh.model.UIViewModel
+// import com.geeksville.mesh.model.Contact // Will use ContactViewModel.Contact
+// import com.geeksville.mesh.model.UIViewModel // Will be replaced
+import com.geeksville.mesh.ui.contact.ContactViewModel // Import ContactViewModel
 import com.geeksville.mesh.ui.common.theme.AppTheme
 import com.geeksville.mesh.ui.contact.ContactItem
 
 @Composable
 fun ShareScreen(
-    viewModel: UIViewModel = hiltViewModel(),
+    contactViewModel: ContactViewModel = hiltViewModel(), // Changed to ContactViewModel
     onConfirm: (String) -> Unit
 ) {
-    val contactList by viewModel.contactList.collectAsStateWithLifecycle()
+    val contactList by contactViewModel.contactList.collectAsStateWithLifecycle() // Use contactViewModel
 
     ShareScreen(
-        contacts = contactList,
+        // Pass ContactViewModel.Contact type if ContactItem expects it, or ensure Contact is compatible
+        contacts = contactList.map {
+            // Manual mapping if the Contact type is different, assuming it's compatible for now
+            // This mapping might be more complex if fields differ significantly or ContactItem expects a specific type
+            // For now, direct pass assuming ContactViewModel.Contact is what ContactItem needs or is compatible
+            it
+        },
         onConfirm = onConfirm,
     )
 }
 
 @Composable
 fun ShareScreen(
-    contacts: List<Contact>,
+    contacts: List<ContactViewModel.Contact>, // Update type
     onConfirm: (String) -> Unit
 ) {
     var selectedContact by remember { mutableStateOf("") }
@@ -104,7 +111,7 @@ private fun ShareScreenPreview() {
     AppTheme {
         ShareScreen(
             contacts = listOf(
-                Contact(
+                ContactViewModel.Contact( // Use ContactViewModel.Contact
                     contactKey = "0^all",
                     shortName = stringResource(R.string.some_username),
                     longName = stringResource(R.string.unknown_username),

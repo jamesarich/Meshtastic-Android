@@ -81,7 +81,8 @@ import com.geeksville.mesh.R
 import com.geeksville.mesh.model.BluetoothViewModel
 import com.geeksville.mesh.model.DeviceVersion
 import com.geeksville.mesh.model.Node
-import com.geeksville.mesh.model.UIViewModel
+// import com.geeksville.mesh.model.UIViewModel // Will be replaced by MainViewModel
+import com.geeksville.mesh.ui.MainViewModel // Import MainViewModel
 import com.geeksville.mesh.navigation.ChannelsRoutes
 import com.geeksville.mesh.navigation.ConnectionsRoutes
 import com.geeksville.mesh.navigation.ContactsRoutes
@@ -122,23 +123,23 @@ enum class TopLevelDestination(@StringRes val label: Int, val icon: ImageVector,
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 fun MainScreen(
-    uIViewModel: UIViewModel = hiltViewModel(),
+    mainViewModel: MainViewModel = hiltViewModel(), // Changed to MainViewModel
     bluetoothViewModel: BluetoothViewModel = hiltViewModel(),
     onAction: (MainMenuAction) -> Unit,
 ) {
     val navController = rememberNavController()
-    val connectionState by uIViewModel.connectionState.collectAsStateWithLifecycle()
-    val localConfig by uIViewModel.localConfig.collectAsStateWithLifecycle()
-    val requestChannelSet by uIViewModel.requestChannelSet.collectAsStateWithLifecycle()
+    val connectionState by mainViewModel.connectionState.collectAsStateWithLifecycle() // Use mainViewModel
+    val localConfig by mainViewModel.localConfig.collectAsStateWithLifecycle() // Use mainViewModel
+    val requestChannelSet by mainViewModel.requestChannelSet.collectAsStateWithLifecycle() // Use mainViewModel
     if (connectionState.isConnected()) {
         requestChannelSet?.let { newChannelSet ->
-            ScannedQrCodeDialog(uIViewModel, newChannelSet)
+            ScannedQrCodeDialog(mainViewModel, newChannelSet) // Pass mainViewModel
         }
     }
 
-    VersionChecks(uIViewModel)
+    VersionChecks(mainViewModel) // Pass mainViewModel
 
-    val alertDialogState by uIViewModel.currentAlert.collectAsStateWithLifecycle()
+    val alertDialogState by mainViewModel.currentAlert.collectAsStateWithLifecycle() // Use mainViewModel
     alertDialogState?.let { state ->
         if (state.choices.isNotEmpty()) {
             MultipleChoiceAlertDialog(
@@ -158,7 +159,7 @@ fun MainScreen(
         }
     }
 
-    val clientNotification by uIViewModel.clientNotification.collectAsStateWithLifecycle()
+    val clientNotification by mainViewModel.clientNotification.collectAsStateWithLifecycle() // Use mainViewModel
     clientNotification?.let { notification ->
         var message = notification.message
         val compromisedKeys =
@@ -177,12 +178,12 @@ fun MainScreen(
                 if (compromisedKeys) {
                     navController.navigate(RadioConfigRoutes.Security)
                 }
-                uIViewModel.clearClientNotification(notification)
+                mainViewModel.clearClientNotification(notification) // Use mainViewModel
             },
         )
     }
 
-    val traceRouteResponse by uIViewModel.tracerouteResponse.observeAsState()
+    val traceRouteResponse by mainViewModel.tracerouteResponse.collectAsStateWithLifecycle() // Use mainViewModel and collectAsStateWithLifecycle
     traceRouteResponse?.let { response ->
         SimpleAlertDialog(
             title = R.string.traceroute,
@@ -190,7 +191,7 @@ fun MainScreen(
                 Text(text = response)
             },
             dismissText = stringResource(id = R.string.okay),
-            onDismiss = { uIViewModel.clearTracerouteResponse() }
+            onDismiss = { mainViewModel.clearTracerouteResponse() } // Use mainViewModel
         )
     }
     val navSuiteType =
@@ -262,8 +263,8 @@ fun MainScreen(
                 )
             }
             MainAppBar(
-                viewModel = uIViewModel,
-                isManaged = localConfig.security.isManaged,
+                mainViewModel = mainViewModel,
+                // isManaged = localConfig.security.isManaged, // MainAppBar will get this from mainViewModel
                 navController = navController,
                 onAction = { action ->
                     if (action is MainMenuAction) {
@@ -288,7 +289,7 @@ fun MainScreen(
                             }
 
                             is NodeMenuAction.Share -> sharedContact = action.node
-                            else -> {}
+                            else -> {} // Node actions like favorite/ignore are handled by MainViewModel now, not directly by MainAppBar
                         }
                     }
                 },
@@ -299,9 +300,10 @@ fun MainScreen(
                     .recalculateWindowInsets()
                     .safeDrawingPadding()
                     .imePadding(),
-                uIViewModel = uIViewModel,
+                mainViewModel = mainViewModel,
                 bluetoothViewModel = bluetoothViewModel,
                 navController = navController,
+                // uIViewModel parameter removed from NavGraph call if NavGraph is updated
             )
         }
     }
@@ -309,49 +311,49 @@ fun MainScreen(
 
 @Composable
 private fun VersionChecks(
-    viewModel: UIViewModel,
+    mainViewModel: MainViewModel, // Changed to MainViewModel
 ) {
-    val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
-    val myNodeInfo by viewModel.myNodeInfo.collectAsStateWithLifecycle()
+    val connectionState by mainViewModel.connectionState.collectAsStateWithLifecycle() // Use mainViewModel
+    val myNodeInfo by mainViewModel.myNodeInfo.collectAsStateWithLifecycle() // Use mainViewModel
     val context = LocalContext.current
     val latestStableFirmwareRelease by
-    viewModel.latestStableFirmwareRelease.collectAsState(DeviceVersion("2.6.4"))
+    mainViewModel.latestStableFirmwareRelease.collectAsStateWithLifecycle(null) // Use mainViewModel, allow null initial for DeviceVersion?
     // Check if the device is running an old app version or firmware version
-    LaunchedEffect(connectionState, myNodeInfo) {
+    LaunchedEffect(connectionState, myNodeInfo, latestStableFirmwareRelease) { // Added latestStableFirmwareRelease to key
         if (connectionState == MeshService.ConnectionState.CONNECTED) {
             myNodeInfo?.let { info ->
                 val isOld = info.minAppVersion > BuildConfig.VERSION_CODE
                 val curVer = DeviceVersion(info.firmwareVersion ?: "0.0.0")
                 if (isOld) {
-                    viewModel.showAlert(
+                    mainViewModel.showAlert( // Use mainViewModel
                         context.getString(R.string.app_too_old),
                         context.getString(R.string.must_update),
                         dismissable = false,
                         onConfirm = {
-                            val service = viewModel.meshService ?: return@showAlert
+                            val service = mainViewModel.meshService ?: return@showAlert // Use mainViewModel
                             MeshService.changeDeviceAddress(context, service, "n")
                         }
                     )
                 } else if (curVer < MeshService.absoluteMinDeviceVersion) {
                     val title = context.getString(R.string.firmware_too_old)
                     val message = context.getString(R.string.firmware_old)
-                    viewModel.showAlert(
+                    mainViewModel.showAlert( // Use mainViewModel
                         title = title,
                         html = message,
                         dismissable = false,
                         onConfirm = {
-                            val service = viewModel.meshService ?: return@showAlert
+                            val service = mainViewModel.meshService ?: return@showAlert // Use mainViewModel
                             MeshService.changeDeviceAddress(context, service, "n")
                         }
                     )
-                } else if (curVer < MeshService.minDeviceVersion) {
+                } else if (latestStableFirmwareRelease != null && curVer < MeshService.minDeviceVersion && curVer < latestStableFirmwareRelease!!) { // Check latestStable not null
                     val title = context.getString(R.string.should_update_firmware)
                     val message =
                         context.getString(
                             R.string.should_update,
-                            latestStableFirmwareRelease.asString
+                            latestStableFirmwareRelease!!.asString // Use !! as we checked for null
                         )
-                    viewModel.showAlert(
+                    mainViewModel.showAlert( // Use mainViewModel
                         title = title,
                         message = message,
                         dismissable = false,
@@ -378,8 +380,8 @@ enum class MainMenuAction(@StringRes val stringRes: Int) {
 @Suppress("LongMethod")
 @Composable
 private fun MainAppBar(
-    viewModel: UIViewModel = hiltViewModel(),
-    isManaged: Boolean,
+    mainViewModel: MainViewModel = hiltViewModel(), // Changed to MainViewModel
+    // isManaged: Boolean, // This will come directly from mainViewModel
     navController: NavHostController,
     modifier: Modifier = Modifier,
     onAction: (Any?) -> Unit
@@ -392,12 +394,14 @@ private fun MainAppBar(
     if (currentDestination?.hasRoute<ContactsRoutes.Messages>() == true) {
         return
     }
-    val title by viewModel.title.collectAsStateWithLifecycle("")
-    val onlineNodeCount by viewModel.onlineNodeCount.collectAsStateWithLifecycle(0)
-    val totalNodeCount by viewModel.totalNodeCount.collectAsStateWithLifecycle(0)
+    val title by mainViewModel.title.collectAsStateWithLifecycle("")
+    val onlineNodeCount by mainViewModel.onlineNodeCount.collectAsStateWithLifecycle(0)
+    val totalNodeCount by mainViewModel.totalNodeCount.collectAsStateWithLifecycle(0)
+    val currentIsManaged = mainViewModel.isManaged // Use direct property
+
     TopAppBar(
         title = {
-            val title = when {
+            val titleText = when {
                 currentDestination == null || isTopLevelRoute -> stringResource(id = R.string.app_name)
 
                 currentDestination.hasRoute<Route.DebugPanel>() -> stringResource(id = R.string.debug_panel)
@@ -406,7 +410,7 @@ private fun MainAppBar(
 
                 currentDestination.hasRoute<ContactsRoutes.Share>() -> stringResource(id = R.string.share_to)
 
-                currentDestination.showLongNameTitle() -> title
+                currentDestination.showLongNameTitle() -> title // title here is the collected state from mainViewModel.title
 
                 else -> stringResource(id = R.string.app_name)
             }
@@ -453,9 +457,9 @@ private fun MainAppBar(
         },
         actions = {
             TopBarActions(
-                viewModel = viewModel,
+                mainViewModel = mainViewModel, // Pass mainViewModel
                 currentDestination = currentDestination,
-                isManaged = isManaged,
+                // isManaged = currentIsManaged, // No longer pass isManaged
                 isTopLevelRoute = isTopLevelRoute,
                 onAction = onAction
             )
@@ -465,14 +469,15 @@ private fun MainAppBar(
 
 @Composable
 private fun TopBarActions(
-    viewModel: UIViewModel = hiltViewModel(),
+    mainViewModel: MainViewModel = hiltViewModel(),
     currentDestination: NavDestination?,
-    isManaged: Boolean,
     isTopLevelRoute: Boolean,
     onAction: (Any?) -> Unit
 ) {
-    val ourNode by viewModel.ourNodeInfo.collectAsStateWithLifecycle()
-    val isConnected by viewModel.isConnected.collectAsStateWithLifecycle(false)
+    val ourNode by mainViewModel.myNodeInfoAsNode.collectAsStateWithLifecycle()
+    val isConnected by mainViewModel.isConnectedFlow.collectAsStateWithLifecycle(false)
+    val currentIsManaged = mainViewModel.isManaged
+
     AnimatedVisibility(ourNode != null && currentDestination?.isTopLevel() == true) {
         ourNode?.let {
             NodeChip(
@@ -485,7 +490,7 @@ private fun TopBarActions(
     }
     when {
         currentDestination == null || isTopLevelRoute ->
-            MainMenuActions(isManaged, onAction)
+            MainMenuActions(currentIsManaged, onAction) // Use currentIsManaged from mainViewModel
 
         currentDestination.hasRoute<Route.DebugPanel>() ->
             DebugMenuActions()

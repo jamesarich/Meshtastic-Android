@@ -20,6 +20,7 @@ package com.geeksville.mesh.model
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.asLiveData
 import com.geeksville.mesh.repository.bluetooth.BluetoothRepository
+import com.geeksville.mesh.repository.radio.RadioInterfaceService // Import RadioInterfaceService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -30,7 +31,12 @@ import javax.inject.Inject
 @HiltViewModel
 class BluetoothViewModel @Inject constructor(
     private val bluetoothRepository: BluetoothRepository,
+    private val radioInterfaceService: RadioInterfaceService // Inject RadioInterfaceService
 ) : ViewModel() {
+
+    val selectedBluetooth: Boolean
+        get() = radioInterfaceService.getDeviceAddress()?.getOrNull(0) == 'x'
+
     /**
      * Called when permissions have been updated.  This causes an explicit refresh of the
      * bluetooth state.

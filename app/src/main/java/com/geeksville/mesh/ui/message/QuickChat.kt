@@ -72,24 +72,25 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.geeksville.mesh.R
 import com.geeksville.mesh.database.entity.QuickChatAction
-import com.geeksville.mesh.model.UIViewModel
+// import com.geeksville.mesh.model.UIViewModel // Replaced by ContactViewModel
 import com.geeksville.mesh.ui.common.components.dragContainer
 import com.geeksville.mesh.ui.common.components.dragDropItemsIndexed
 import com.geeksville.mesh.ui.common.components.rememberDragDropState
+import com.geeksville.mesh.ui.contact.ContactViewModel // Import ContactViewModel
 import com.geeksville.mesh.ui.common.theme.AppTheme
 
 @Composable
 internal fun QuickChatScreen(
     modifier: Modifier = Modifier,
-    viewModel: UIViewModel = hiltViewModel(),
+    contactViewModel: ContactViewModel = hiltViewModel(), // Changed to ContactViewModel
 ) {
-    val actions by viewModel.quickChatActions.collectAsStateWithLifecycle()
+    val actions by contactViewModel.quickChatActions.collectAsStateWithLifecycle() // Use contactViewModel
     var showActionDialog by remember { mutableStateOf<QuickChatAction?>(null) }
 
     val listState = rememberLazyListState()
     val dragDropState = rememberDragDropState(listState) { fromIndex, toIndex ->
         val list = actions.toMutableList().apply { add(toIndex, removeAt(fromIndex)) }
-        viewModel.updateActionPositions(list)
+        contactViewModel.updateActionPositions(list) // Use contactViewModel
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -97,8 +98,8 @@ internal fun QuickChatScreen(
             val action = showActionDialog ?: return
             EditQuickChatDialog(
                 action = action,
-                onSave = viewModel::addQuickChatAction,
-                onDelete = viewModel::deleteQuickChatAction,
+                onSave = contactViewModel::addQuickChatAction, // Use contactViewModel
+                onDelete = contactViewModel::deleteQuickChatAction, // Use contactViewModel
             ) { showActionDialog = null }
         }
 

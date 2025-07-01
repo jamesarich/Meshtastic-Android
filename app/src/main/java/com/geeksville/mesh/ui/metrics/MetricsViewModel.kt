@@ -15,7 +15,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.geeksville.mesh.model
+package com.geeksville.mesh.ui.metrics // Updated package
 
 import android.app.Application
 import android.content.SharedPreferences

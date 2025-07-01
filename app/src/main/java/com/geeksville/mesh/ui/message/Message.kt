@@ -92,7 +92,10 @@ import com.geeksville.mesh.R
 import com.geeksville.mesh.database.entity.QuickChatAction
 import com.geeksville.mesh.model.Message
 import com.geeksville.mesh.model.Node
-import com.geeksville.mesh.model.UIViewModel
+import com.geeksville.mesh.model.UIViewModel // Keep for temporary uiViewModel for handleNodeMenuAction
+import com.geeksville.mesh.ui.contact.ContactViewModel // Import ContactViewModel
+import com.geeksville.mesh.ui.MainViewModel // Import MainViewModel
+import com.geeksville.mesh.database.NodeRepository // Import NodeRepository
 import com.geeksville.mesh.model.getChannel
 import com.geeksville.mesh.ui.common.theme.AppTheme
 import com.geeksville.mesh.ui.node.components.NodeKeyStatusIcon
@@ -109,7 +112,10 @@ private const val SNIPPET_CHARACTER_LIMIT = 50
 internal fun MessageScreen(
     contactKey: String,
     message: String,
-    viewModel: UIViewModel = hiltViewModel(),
+    contactViewModel: ContactViewModel = hiltViewModel(),
+    mainViewModel: MainViewModel = hiltViewModel(),
+    nodeRepository: NodeRepository = hiltViewModel(),
+    // uiViewModel removed, handleNodeMenuAction will use mainViewModel
     navigateToMessages: (String) -> Unit,
     navigateToNodeDetails: (Int) -> Unit,
     onNavigateBack: () -> Unit,
@@ -117,18 +123,18 @@ internal fun MessageScreen(
     val coroutineScope = rememberCoroutineScope()
     val clipboardManager = LocalClipboard.current
 
-    val ourNode by viewModel.ourNodeInfo.collectAsStateWithLifecycle()
-    val isConnected by viewModel.isConnected.collectAsStateWithLifecycle(false)
+    // States from MainViewModel or NodeRepository
+    val ourNode by nodeRepository.ourNodeInfo.collectAsStateWithLifecycle() // From NodeRepository
+    val isConnected by mainViewModel.isConnectedFlow.collectAsStateWithLifecycle() // From MainViewModel
+    val channels by mainViewModel.channels.collectAsStateWithLifecycle() // From MainViewModel
 
     val channelIndex = contactKey[0].digitToIntOrNull()
     val nodeId = contactKey.substring(1)
-    val channels by viewModel.channels.collectAsStateWithLifecycle()
-    val channelName by remember(channelIndex) {
+    val channelName by remember(channelIndex, channels) {
         derivedStateOf {
             channelIndex?.let {
-                val channel = channels.getChannel(it)
+                val channel = channels.getChannel(it) // getChannel is an extension on ChannelSet
                 val name = channel?.name ?: "Unknown Channel"
-                // Check if PSK is the default (base64 'AQ==', i.e., single byte 0x01)
                 val isDefaultPSK = (channel?.settings?.psk?.size() == 1 &&
                     channel.settings.psk.byteAt(0) == 1.toByte()) ||
                     channel?.psk?.toByteArray()?.isEmpty() == true
@@ -139,11 +145,11 @@ internal fun MessageScreen(
     val (channelTitle, isDefaultPsk) = channelName
     val title = when (nodeId) {
         DataPacket.ID_BROADCAST -> channelTitle
-        else -> viewModel.getUser(nodeId).longName
+        else -> nodeRepository.getUser(nodeId).longName // From NodeRepository
     }
-    viewModel.setTitle(title)
+    mainViewModel.setTitle(title) // Use MainViewModel
     val mismatchKey =
-        DataPacket.PKC_CHANNEL_INDEX == channelIndex && viewModel.getNode(nodeId).mismatchKey
+        DataPacket.PKC_CHANNEL_INDEX == channelIndex && nodeRepository.getNode(nodeId).mismatchKey // From NodeRepository
 
 //    if (channelIndex != DataPacket.PKC_CHANNEL_INDEX && nodeId != DataPacket.ID_BROADCAST) {
 //        subtitle = "(ch: $channelIndex - $channelName)"
@@ -152,8 +158,9 @@ internal fun MessageScreen(
     val selectedIds = rememberSaveable { mutableStateOf(emptySet<Long>()) }
     val inSelectionMode by remember { derivedStateOf { selectedIds.value.isNotEmpty() } }
 
-    val quickChat by viewModel.quickChatActions.collectAsStateWithLifecycle()
-    val messages by viewModel.getMessagesFrom(contactKey).collectAsStateWithLifecycle(listOf())
+    // Use contactViewModel for these
+    val quickChat by contactViewModel.quickChatActions.collectAsStateWithLifecycle()
+    val messages by contactViewModel.getMessagesFrom(contactKey).collectAsStateWithLifecycle(listOf())
     val listState = rememberLazyListState(
         initialFirstVisibleItemIndex = messages.indexOfLast { !it.read }.coerceAtLeast(0)
     )
@@ -166,7 +173,7 @@ internal fun MessageScreen(
         DeleteMessageDialog(
             size = selectedIds.value.size,
             onConfirm = {
-                viewModel.deleteMessages(selectedIds.value.toList())
+                contactViewModel.deleteMessages(selectedIds.value.toList()) // Use contactViewModel
                 selectedIds.value = emptySet()
                 showDeleteDialog = false
             },
@@ -226,22 +233,25 @@ internal fun MessageScreen(
                     listState = listState,
                     messages = messages,
                     selectedIds = selectedIds,
-                    onUnreadChanged = { viewModel.clearUnreadCount(contactKey, it) },
+                    onUnreadChanged = { contactViewModel.clearUnreadCount(contactKey, it) }, // Use contactViewModel
                     onSendReaction = { emoji, id ->
-                        viewModel.sendReaction(
+                        contactViewModel.sendReaction( // Use contactViewModel
                             emoji,
                             id,
                             contactKey
                         )
                     },
-                    viewModel = viewModel,
+                    contactViewModel = contactViewModel,
+                    mainViewModel = mainViewModel, // Pass mainViewModel
+                    nodeRepository = nodeRepository, // Pass nodeRepository
                     contactKey = contactKey,
                     onReply = { replyingTo = it },
                     onNodeMenuAction = { action ->
                         when (action) {
                             is NodeMenuAction.DirectMessage -> {
+                                val currentOurNode = ourNode // Captured from nodeRepository.ourNodeInfo
                                 val hasPKC =
-                                    viewModel.ourNodeInfo.value?.hasPKC == true && action.node.hasPKC
+                                    currentOurNode?.hasPKC == true && action.node.hasPKC
                                 val channel =
                                     if (hasPKC) DataPacket.PKC_CHANNEL_INDEX else action.node.channel
                                 navigateToMessages("$channel${action.node.user.id}")
@@ -249,7 +259,7 @@ internal fun MessageScreen(
 
                             is NodeMenuAction.MoreDetails -> navigateToNodeDetails(action.node.num)
                             is NodeMenuAction.Share -> sharedContact = action.node
-                            else -> viewModel.handleNodeMenuAction(action)
+                            else -> mainViewModel.handleNodeMenuAction(action) // Use mainViewModel
                         }
                     },
                 )
@@ -275,7 +285,7 @@ internal fun MessageScreen(
                 enabled = isConnected,
                 actions = quickChat,
                 onClick = { action ->
-                    handleQuickChatAction(action, messageInput, viewModel, contactKey)
+                    handleQuickChatAction(action, messageInput, contactViewModel, contactKey) // Use contactViewModel
                 }
             )
             ReplySnippet(replyingTo, { replyingTo = null }, ourNode)
@@ -283,9 +293,9 @@ internal fun MessageScreen(
                 val message = messageInput.text.toString().trim()
                 if (message.isNotEmpty()) {
                     replyingTo?.let {
-                        viewModel.sendMessage(message, contactKey, it.packetId)
+                        contactViewModel.sendMessage(message, contactKey, it.packetId) // Use contactViewModel
                         replyingTo = null
-                    } ?: viewModel.sendMessage(message, contactKey)
+                    } ?: contactViewModel.sendMessage(message, contactKey) // Use contactViewModel
                     // Clear the text input after sending the message and updating all state
                     messageInput.clearText()
                 }
@@ -353,7 +363,7 @@ private fun ReplySnippet(
 private fun handleQuickChatAction(
     action: QuickChatAction,
     messageInput: TextFieldState,
-    viewModel: UIViewModel,
+    contactViewModel: ContactViewModel, // Changed to ContactViewModel
     contactKey: String
 ) {
     if (action.mode == QuickChatAction.Mode.Append) {
@@ -369,7 +379,7 @@ private fun handleQuickChatAction(
             messageInput.setTextAndPlaceCursorAtEnd(newText)
         }
     } else {
-        viewModel.sendMessage(action.message, contactKey)
+        contactViewModel.sendMessage(action.message, contactKey) // Use contactViewModel
     }
 }
 
