@@ -17,3 +17,28 @@
 
 include(":app", ":network", ":mesh_service_example")
 rootProject.name = "Meshtastic Android"
+
+plugins {
+    id("org.gradle.toolchains.foojay-resolver") version "1.0.0"
+    id("com.gradle.develocity") version("4.1")
+}
+
+develocity {
+    buildScan {
+        capture {
+            fileFingerprints.set(true)
+        }
+        publishing.onlyIf { false }
+    }
+}
+
+@Suppress("UnstableApiUsage")
+toolchainManagement {
+    jvm {
+        javaRepositories {
+            repository("foojay") {
+                resolverClass.set(org.gradle.toolchains.foojay.FoojayToolchainResolver::class.java)
+            }
+        }
+    }
+}

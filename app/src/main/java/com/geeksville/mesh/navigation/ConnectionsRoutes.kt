@@ -24,6 +24,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.navDeepLink
 import androidx.navigation.navigation
+import com.geeksville.mesh.model.BluetoothViewModel
 import com.geeksville.mesh.model.UIViewModel
 import com.geeksville.mesh.ui.connections.ConnectionsScreen
 import com.geeksville.mesh.ui.radioconfig.components.LoRaConfigScreen
@@ -41,7 +42,11 @@ sealed class ConnectionsRoutes {
 /**
  * Navigation graph for for the top level ConnectionsScreen - [ConnectionsRoutes.Connections].
  */
-fun NavGraphBuilder.connectionsGraph(navController: NavHostController, uiViewModel: UIViewModel) {
+fun NavGraphBuilder.connectionsGraph(
+    navController: NavHostController,
+    uiViewModel: UIViewModel,
+    bluetoothViewModel: BluetoothViewModel
+) {
     navigation<ConnectionsRoutes.ConnectionsGraph>(
         startDestination = ConnectionsRoutes.Connections,
     ) {
@@ -54,13 +59,15 @@ fun NavGraphBuilder.connectionsGraph(navController: NavHostController, uiViewMod
             )
         ) { backStackEntry ->
             val parentEntry = remember(backStackEntry) {
-                navController.getBackStackEntry<ConnectionsRoutes.ConnectionsGraph>()
+                val parentRoute = backStackEntry.destination.parent!!.route!!
+                navController.getBackStackEntry(parentRoute)
             }
             ConnectionsScreen(
-                uiViewModel,
+                uiViewModel = uiViewModel,
+                bluetoothViewModel = bluetoothViewModel,
                 radioConfigViewModel = hiltViewModel(parentEntry),
                 onNavigateToRadioConfig = { navController.navigate(RadioConfigRoutes.RadioConfig()) },
-                onNavigateToNodeDetails = { navController.navigate(NodesRoutes.NodeDetail(it)) },
+                onNavigateToNodeDetails = { navController.navigate(NodesRoutes.NodeDetailGraph(it)) },
                 onConfigNavigate = { route -> navController.navigate(route) }
             )
         }
@@ -73,7 +80,8 @@ private fun NavGraphBuilder.configRoutes(
 ) {
     composable<RadioConfigRoutes.LoRa> { backStackEntry ->
         val parentEntry = remember(backStackEntry) {
-            navController.getBackStackEntry<ConnectionsRoutes.ConnectionsGraph>()
+            val parentRoute = backStackEntry.destination.parent!!.route!!
+            navController.getBackStackEntry(parentRoute)
         }
         LoRaConfigScreen(hiltViewModel(parentEntry))
     }

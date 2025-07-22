@@ -81,6 +81,7 @@ import com.geeksville.mesh.repository.radio.RadioServiceConnectionState
 import com.geeksville.mesh.telemetry
 import com.geeksville.mesh.user
 import com.geeksville.mesh.util.anonymize
+import com.geeksville.mesh.util.ignoreException
 import com.geeksville.mesh.util.toOneLineString
 import com.geeksville.mesh.util.toPIIString
 import com.geeksville.mesh.util.toRemoteExceptions
@@ -343,7 +344,8 @@ class MeshService : Service(), Logging {
         serviceNotifications.updateMessageNotification(
             contactKey,
             getSenderName(dataPacket),
-            message
+            message,
+            isBroadcast = dataPacket.to == DataPacket.ID_BROADCAST
         )
     }
 
@@ -680,7 +682,8 @@ class MeshService : Service(), Logging {
                 wantAck = packet.wantAck,
                 hopStart = packet.hopStart,
                 snr = packet.rxSnr,
-                rssi = packet.rxRssi
+                rssi = packet.rxRssi,
+                replyId = data.replyId,
             )
         }
     }
@@ -694,6 +697,9 @@ class MeshService : Service(), Logging {
         ) {
             portnumValue = p.dataType
             payload = ByteString.copyFrom(p.bytes)
+            if (p.replyId != null && p.replyId != 0) {
+                this.replyId = p.replyId!!
+            }
         }
     }
 
@@ -736,7 +742,8 @@ class MeshService : Service(), Logging {
             data = dataPacket,
             snr = dataPacket.snr,
             rssi = dataPacket.rssi,
-            hopsAway = dataPacket.hopsAway
+            hopsAway = dataPacket.hopsAway,
+            replyId = dataPacket.replyId ?: 0
         )
         serviceScope.handledLaunch {
             packetRepository.get().apply {
@@ -775,7 +782,10 @@ class MeshService : Service(), Logging {
 
                 when (data.portnumValue) {
                     Portnums.PortNum.TEXT_MESSAGE_APP_VALUE -> {
-                        if (data.emoji != 0) {
+                        if (data.replyId != 0 && data.emoji == 0) {
+                            debug("Received REPLY from $fromId")
+                            rememberDataPacket(dataPacket)
+                        } else if (data.replyId != 0 && data.emoji != 0) {
                             debug("Received EMOJI from $fromId")
                             rememberReaction(packet)
                         } else {
@@ -978,7 +988,8 @@ class MeshService : Service(), Logging {
         fromNum: Int,
         t: TelemetryProtos.Telemetry,
     ) {
-        if (t.hasLocalStats()) {
+        val isRemote = (fromNum != myNodeNum)
+        if (!isRemote && t.hasLocalStats()) {
             localStatsTelemetry = t
             maybeUpdateServiceStatusNotification()
         }
@@ -986,7 +997,6 @@ class MeshService : Service(), Logging {
             when {
                 t.hasDeviceMetrics() -> {
                     it.deviceTelemetry = t
-                    val isRemote = (fromNum != myNodeNum)
                     if (fromNum == myNodeNum || (isRemote && it.isFavorite)) {
                         if (t.deviceMetrics.voltage > batteryPercentUnsupported &&
                             t.deviceMetrics.batteryLevel <= batteryPercentLowThreshold
@@ -1931,12 +1941,14 @@ class MeshService : Service(), Logging {
     }
 
     private fun onServiceAction(action: ServiceAction) {
-        when (action) {
-            is ServiceAction.GetDeviceMetadata -> getDeviceMetadata(action.destNum)
-            is ServiceAction.Favorite -> favoriteNode(action.node)
-            is ServiceAction.Ignore -> ignoreNode(action.node)
-            is ServiceAction.Reaction -> sendReaction(action)
-            is ServiceAction.AddSharedContact -> importContact(action.contact)
+        ignoreException {
+            when (action) {
+                is ServiceAction.GetDeviceMetadata -> getDeviceMetadata(action.destNum)
+                is ServiceAction.Favorite -> favoriteNode(action.node)
+                is ServiceAction.Ignore -> ignoreNode(action.node)
+                is ServiceAction.Reaction -> sendReaction(action)
+                is ServiceAction.AddSharedContact -> importContact(action.contact)
+            }
         }
     }
 
@@ -2039,8 +2051,13 @@ class MeshService : Service(), Logging {
                     putString("device_address", deviceAddr)
                 }
                 clearDatabases()
+                clearNotifications()
             }
         }
+    }
+
+    private fun clearNotifications() {
+        serviceNotifications.clearNotifications()
     }
     private val binder = object : IMeshService.Stub() {
 
@@ -2275,13 +2292,38 @@ class MeshService : Service(), Logging {
             }
         }
         override fun requestPosition(destNum: Int, position: Position) = toRemoteExceptions {
-            sendToRadio(newMeshPacketTo(destNum).buildMeshPacket(
-                channel = nodeDBbyNodeNum[destNum]?.channel ?: 0,
-                priority = MeshPacket.Priority.BACKGROUND,
-            ) {
-                portnumValue = Portnums.PortNum.POSITION_APP_VALUE
-                wantResponse = true
-            })
+            if (destNum != myNodeNum) {
+                // Determine the best position to send based on user preferences and available data
+                val provideLocation = sharedPreferences.getBoolean("provide-location-$myNodeNum", false)
+                val currentPosition = when {
+                    // Use provided position if valid and user allows phone location sharing
+                    provideLocation && position.isValid() -> position
+                    // Otherwise use the last valid position from nodeDB (node GPS or static)
+                    else -> nodeDBbyNodeNum[myNodeNum]?.position?.let { Position(it) }?.takeIf { it.isValid() }
+                }
+
+                if (currentPosition == null) {
+                    debug("Position request skipped - no valid position available")
+                    return@toRemoteExceptions
+                }
+
+                // Convert Position to MeshProtos.Position for the payload
+                val meshPosition = position {
+                    latitudeI = Position.degI(currentPosition.latitude)
+                    longitudeI = Position.degI(currentPosition.longitude)
+                    altitude = currentPosition.altitude
+                    time = currentSecond()
+                }
+
+                sendToRadio(newMeshPacketTo(destNum).buildMeshPacket(
+                    channel = nodeDBbyNodeNum[destNum]?.channel ?: 0,
+                    priority = MeshPacket.Priority.BACKGROUND,
+                ) {
+                    portnumValue = Portnums.PortNum.POSITION_APP_VALUE
+                    payload = meshPosition.toByteString()
+                    wantResponse = true
+                })
+            }
         }
 
         override fun setFixedPosition(destNum: Int, position: Position) = toRemoteExceptions {

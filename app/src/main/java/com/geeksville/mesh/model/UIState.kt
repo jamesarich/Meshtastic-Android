@@ -160,6 +160,7 @@ data class NodesUiState(
     val distanceUnits: Int = 0,
     val tempInFahrenheit: Boolean = false,
     val showDetails: Boolean = false,
+    val showIgnored: Boolean = false,
 ) {
     companion object {
         val Empty = NodesUiState()
@@ -176,10 +177,10 @@ data class Contact(
     val messageCount: Int,
     val isMuted: Boolean,
     val isUnmessageable: Boolean,
-    val nodeColors: Pair<Int, Int>? = null,
+    val nodeColors: Pair<Int, Int>? = null
 )
 
-@Suppress("LongParameterList")
+@Suppress("LongParameterList", "LargeClass")
 @HiltViewModel
 class UIViewModel @Inject constructor(
     private val app: Application,
@@ -203,13 +204,33 @@ class UIViewModel @Inject constructor(
         preferences.edit { putInt("theme", theme) }
     }
 
+    private val _lastTraceRouteTime = MutableStateFlow<Long?>(null)
+    val lastTraceRouteTime: StateFlow<Long?> = _lastTraceRouteTime.asStateFlow()
+
+    private val _excludedModulesUnlocked = MutableStateFlow(false)
+    val excludedModulesUnlocked: StateFlow<Boolean> = _excludedModulesUnlocked.asStateFlow()
+
+    fun unlockExcludedModules() {
+        viewModelScope.launch {
+            _excludedModulesUnlocked.value = true
+        }
+    }
+
+    val clientNotification: StateFlow<MeshProtos.ClientNotification?> =
+        radioConfigRepository.clientNotification
+
+    fun clearClientNotification(notification: MeshProtos.ClientNotification) {
+        radioConfigRepository.clearClientNotification()
+        meshServiceNotifications.clearClientNotification(notification)
+    }
+
     data class AlertData(
         val title: String,
         val message: String? = null,
         val html: String? = null,
         val onConfirm: (() -> Unit)? = null,
         val onDismiss: (() -> Unit)? = null,
-        val choices: Map<String, () -> Unit> = emptyMap()
+        val choices: Map<String, () -> Unit> = emptyMap(),
     )
 
     private val _currentAlert: MutableStateFlow<AlertData?> = MutableStateFlow(null)
@@ -221,7 +242,7 @@ class UIViewModel @Inject constructor(
         html: String? = null,
         onConfirm: (() -> Unit)? = {},
         dismissable: Boolean = true,
-        choices: Map<String, () -> Unit> = emptyMap()
+        choices: Map<String, () -> Unit> = emptyMap(),
     ) {
         _currentAlert.value =
             AlertData(
@@ -235,7 +256,7 @@ class UIViewModel @Inject constructor(
                 onDismiss = {
                     if (dismissable) dismissAlert()
                 },
-                choices = choices
+                choices = choices,
             )
     }
 
@@ -246,13 +267,15 @@ class UIViewModel @Inject constructor(
     private val _title = MutableStateFlow("")
     val title: StateFlow<String> = _title.asStateFlow()
     fun setTitle(title: String) {
-        _title.value = title
+        viewModelScope.launch {
+
+            _title.value = title
+        }
     }
 
     val receivingLocationUpdates: StateFlow<Boolean> get() = locationRepository.receivingLocationUpdates
     val meshService: IMeshService? get() = radioConfigRepository.meshService
 
-    val bondedAddress get() = radioInterfaceService.getBondedDeviceAddress()
     val selectedBluetooth get() = radioInterfaceService.getDeviceAddress()?.getOrNull(0) == 'x'
 
     private val _localConfig = MutableStateFlow<LocalConfig>(LocalConfig.getDefaultInstance())
@@ -272,19 +295,31 @@ class UIViewModel @Inject constructor(
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val nodeFilterText = MutableStateFlow("")
-    private val nodeSortOption = MutableStateFlow(NodeSortOption.VIA_FAVORITE)
+    private val nodeSortOption = MutableStateFlow(
+        NodeSortOption.entries.getOrElse(
+            preferences.getInt("node-sort-option", NodeSortOption.VIA_FAVORITE.ordinal)
+        ) { NodeSortOption.VIA_FAVORITE }
+    )
     private val includeUnknown = MutableStateFlow(preferences.getBoolean("include-unknown", false))
     private val showDetails = MutableStateFlow(preferences.getBoolean("show-details", false))
     private val onlyOnline = MutableStateFlow(preferences.getBoolean("only-online", false))
     private val onlyDirect = MutableStateFlow(preferences.getBoolean("only-direct", false))
 
     private val onlyFavorites = MutableStateFlow(preferences.getBoolean("only-favorites", false))
-    private val showWaypointsOnMap = MutableStateFlow(preferences.getBoolean("show-waypoints-on-map", true))
+    private val showWaypointsOnMap =
+        MutableStateFlow(preferences.getBoolean("show-waypoints-on-map", true))
     private val showPrecisionCircleOnMap =
         MutableStateFlow(preferences.getBoolean("show-precision-circle-on-map", true))
 
+    private val showIgnored = MutableStateFlow(preferences.getBoolean("show-ignored", false))
+    fun toggleShowIgnored() {
+        showIgnored.value = !showIgnored.value
+        preferences.edit { putBoolean("show-ignored", showIgnored.value) }
+    }
+
     fun setSortOption(sort: NodeSortOption) {
         nodeSortOption.value = sort
+        preferences.edit { putInt("node-sort-option", sort.ordinal) }
     }
 
     fun toggleShowDetails() {
@@ -327,6 +362,7 @@ class UIViewModel @Inject constructor(
         val includeUnknown: Boolean,
         val onlyOnline: Boolean,
         val onlyDirect: Boolean,
+        val showIgnored: Boolean,
     )
 
     val nodeFilterStateFlow: Flow<NodeFilterState> = combine(
@@ -334,8 +370,9 @@ class UIViewModel @Inject constructor(
         includeUnknown,
         onlyOnline,
         onlyDirect,
-    ) { filterText, includeUnknown, onlyOnline, onlyDirect ->
-        NodeFilterState(filterText, includeUnknown, onlyOnline, onlyDirect)
+        showIgnored,
+    ) { filterText, includeUnknown, onlyOnline, onlyDirect, showIgnored ->
+        NodeFilterState(filterText, includeUnknown, onlyOnline, onlyDirect, showIgnored)
     }
 
     val nodesUiState: StateFlow<NodesUiState> = combine(
@@ -354,6 +391,7 @@ class UIViewModel @Inject constructor(
             distanceUnits = profile.config.display.units.number,
             tempInFahrenheit = profile.moduleConfig.telemetry.environmentDisplayFahrenheit,
             showDetails = showDetails,
+            showIgnored = filterFlow.showIgnored,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -369,10 +407,25 @@ class UIViewModel @Inject constructor(
 
     val nodeList: StateFlow<List<Node>> = nodesUiState.flatMapLatest { state ->
         nodeDB.getNodes(state.sort, state.filter, state.includeUnknown, state.onlyOnline, state.onlyDirect)
+            .map { list ->
+                list.filter { it.isIgnored == state.showIgnored }
+            }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList(),
+    )
+
+    val onlineNodeCount = nodeDB.onlineNodeCount.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = 0,
+    )
+
+    val totalNodeCount = nodeDB.totalNodeCount.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = 0,
     )
 
     val filteredNodeList: StateFlow<List<Node>> = nodeList.mapLatest { list ->
@@ -429,18 +482,6 @@ class UIViewModel @Inject constructor(
                 message = it,
                 onConfirm = {
                     radioConfigRepository.clearErrorMessage()
-                },
-                dismissable = false
-            )
-        }.launchIn(viewModelScope)
-
-        radioConfigRepository.clientNotification.filterNotNull().onEach { notification ->
-            showAlert(
-                title = app.getString(R.string.client_notification),
-                message = notification.message,
-                onConfirm = {
-                    radioConfigRepository.clearClientNotification()
-                    meshServiceNotifications.clearClientNotification(notification)
                 },
                 dismissable = false
             )
@@ -506,7 +547,7 @@ class UIViewModel @Inject constructor(
                     node.colors
                 } else {
                     null
-                },
+                }
             )
         }
     }.stateIn(
@@ -515,12 +556,26 @@ class UIViewModel @Inject constructor(
         initialValue = emptyList(),
     )
 
-    fun getMessagesFrom(contactKey: String) = packetRepository.getMessagesFrom(contactKey)
-        .mapLatest { list -> list.map { it.toMessage(::getNode) } }
+    fun getMessagesFrom(contactKey: String): StateFlow<List<Message>> {
+        _contactKeyForMessages.value = contactKey
+        return messagesForContactKey
+    }
+
+    private val _contactKeyForMessages: MutableStateFlow<String?> = MutableStateFlow(null)
+    private val messagesForContactKey: StateFlow<List<Message>> =
+        _contactKeyForMessages.filterNotNull().flatMapLatest { contactKey ->
+            packetRepository.getMessagesFrom(contactKey, ::getNode)
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList(),
+        )
 
     val waypoints = packetRepository.getWaypoints().mapLatest { list ->
         list.associateBy { packet -> packet.data.waypoint!!.id }
-            .filterValues { it.data.waypoint!!.expire > System.currentTimeMillis() / 1000 }
+            .filterValues {
+                it.data.waypoint!!.expire == 0 || it.data.waypoint!!.expire > System.currentTimeMillis() / 1000
+            }
     }
 
     fun generatePacketId(): Int? {
@@ -532,7 +587,7 @@ class UIViewModel @Inject constructor(
         }
     }
 
-    fun sendMessage(str: String, contactKey: String = "0${DataPacket.ID_BROADCAST}") {
+    fun sendMessage(str: String, contactKey: String = "0${DataPacket.ID_BROADCAST}", replyId: Int? = null) {
         // contactKey: unique contact key filter (channel)+(nodeId)
         val channel = contactKey[0].digitToIntOrNull()
         val dest = if (channel != null) contactKey.substring(1) else contactKey
@@ -545,7 +600,7 @@ class UIViewModel @Inject constructor(
                 favoriteNode(nodeDB.getNode(dest))
             }
         }
-        val p = DataPacket(dest, channel ?: 0, str)
+        val p = DataPacket(dest, channel ?: 0, str, replyId)
         sendDataPacket(p)
     }
 
@@ -568,6 +623,15 @@ class UIViewModel @Inject constructor(
 
     fun sendReaction(emoji: String, replyId: Int, contactKey: String) = viewModelScope.launch {
         radioConfigRepository.onServiceAction(ServiceAction.Reaction(emoji, replyId, contactKey))
+    }
+
+    private val _sharedContactRequested: MutableStateFlow<AdminProtos.SharedContact?> =
+        MutableStateFlow(null)
+    val sharedContactRequested: StateFlow<AdminProtos.SharedContact?> get() = _sharedContactRequested.asStateFlow()
+    fun setSharedContactRequested(sharedContact: AdminProtos.SharedContact?) {
+        viewModelScope.launch {
+            _sharedContactRequested.value = sharedContact
+        }
     }
 
     fun addSharedContact(sharedContact: AdminProtos.SharedContact) = viewModelScope.launch {
@@ -656,7 +720,8 @@ class UIViewModel @Inject constructor(
         showSnackbar(R.string.channel_invalid)
     }
 
-    val latestStableFirmwareRelease = firmwareReleaseRepository.stableRelease.mapNotNull { it?.asDeviceVersion() }
+    val latestStableFirmwareRelease =
+        firmwareReleaseRepository.stableRelease.mapNotNull { it?.asDeviceVersion() }
 
     /**
      * Called immediately after activity observes requestChannelUrl
@@ -702,7 +767,11 @@ class UIViewModel @Inject constructor(
             is NodeMenuAction.Favorite -> favoriteNode(action.node)
             is NodeMenuAction.RequestUserInfo -> requestUserInfo(action.node.num)
             is NodeMenuAction.RequestPosition -> requestPosition(action.node.num)
-            is NodeMenuAction.TraceRoute -> requestTraceroute(action.node.num)
+            is NodeMenuAction.TraceRoute -> {
+                requestTraceroute(action.node.num)
+                _lastTraceRouteTime.value = System.currentTimeMillis()
+            }
+
             else -> {}
         }
     }

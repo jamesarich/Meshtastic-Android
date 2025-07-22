@@ -21,9 +21,12 @@
     <string name="main_tab_map">Mappa</string>
     <string name="main_tab_channel">Canale</string>
     <string name="main_tab_settings">Impostazioni</string>
+    <string name="fallback_node_name">Meshtastic %s</string>
     <string name="node_filter_placeholder">Filtro</string>
     <string name="desc_node_filter_clear">elimina filtro nodi</string>
     <string name="node_filter_include_unknown">Includi sconosciuti</string>
+    <string name="node_filter_only_online">Nascondi i nodi offline</string>
+    <string name="node_filter_only_direct">Mostra solamente i nodi diretti</string>
     <string name="node_filter_show_details">Mostra dettagli</string>
     <string name="node_sort_button">Opzioni ordinamento nodi</string>
     <string name="node_sort_alpha">A-Z</string>
@@ -32,6 +35,7 @@
     <string name="node_sort_hops_away">Distanza in Hop</string>
     <string name="node_sort_last_heard">Ricevuto più di recente</string>
     <string name="node_sort_via_mqtt">via MQTT</string>
+    <string name="via_mqtt">via MQTT</string>
     <string name="node_sort_via_favorite">via Preferiti</string>
     <string name="unrecognized">Non riconosciuto</string>
     <string name="message_status_enroute">In attesa di conferma</string>
@@ -135,7 +139,15 @@
     <string name="text_messages">Messaggi di testo</string>
     <string name="channel_invalid">L\'URL di questo Canale non è valida e non può essere usata</string>
     <string name="debug_panel">Pannello Di Debug</string>
+    <string name="debug_logs_export">Esporta i logs</string>
     <string name="debug_last_messages">Ultimi 500 messaggi</string>
+    <string name="debug_filters">Filtri</string>
+    <string name="debug_active_filters">Filtri attivi</string>
+    <string name="debug_default_search">Cerca nei log…</string>
+    <string name="debug_clear">Cancella i log</string>
+    <string name="match_any">Trova qualsiasi corrispondenza | Tutte</string>
+    <string name="match_all">Trova tutte le corrispondenze | Qualsiasi</string>
+    <string name="debug_clear_logs_confirm">Verranno rimossi tutti i pacchetti dei log e le voci del database dal dispositivo - Si tratta di un ripristino completo ed irreversibile.</string>
     <string name="clear">Svuota</string>
     <string name="updating_firmware">Aggiornamento del firmware in corso, attendere fino a otto minuti…</string>
     <string name="update_successful">Aggiornamento riuscito</string>
@@ -143,7 +155,8 @@
     <string name="message_reception_time">ora di ricezione messaggio</string>
     <string name="message_reception_state">stato di ricezione messaggio</string>
     <string name="message_delivery_status">Stato di consegna messaggi</string>
-    <string name="meshtastic_messages_notifications">Notifiche messaggio</string>
+    <string name="meshtastic_messages_notifications">Notifiche di messaggi diretti</string>
+    <string name="meshtastic_broadcast_notifications">Notifiche di messaggi broadcast</string>
     <string name="meshtastic_alerts_notifications">Notifiche di allarme</string>
     <string name="protocol_stress_test">Stress test del protocollo</string>
     <string name="firmware_too_old">È necessario aggiornare il firmware.</string>
@@ -267,6 +280,7 @@
     <string name="humidity">Umidità</string>
     <string name="logs">Registri</string>
     <string name="hops_away">Distanza in Hop</string>
+    <string name="hops_away_template">Distanza in Hop: %1$d</string>
     <string name="info">Informazioni</string>
     <string name="ch_util_definition">Utilizzazione del canale attuale, compreso TX, RX ben formato e RX malformato (cioè rumore).</string>
     <string name="air_util_definition">Percentuale di tempo di trasmissione utilizzato nell’ultima ora.</string>
@@ -288,6 +302,7 @@
     <string name="device_metrics_log">Registro Metriche Dispositivo</string>
     <string name="node_map">Mappa Dei Nodi</string>
     <string name="position_log">Registro Posizione</string>
+    <string name="last_position_update">Aggiornamento ultima posizione</string>
     <string name="env_metrics_log">Registro Metriche Ambientali</string>
     <string name="sig_metrics_log">Registro Metriche Segnale</string>
     <string name="administration">Amministrazione</string>
@@ -333,14 +348,14 @@
     <string name="are_you_sure">Sei sicuro?</string>
     <string name="router_role_confirmation_text"><![CDATA[Ho letto la <a href="https://meshtastic.org/docs/configuration/radio/device/#roles">Documentazione sui ruoli dei dispositivi </a> e il post del blog su <a href="http://meshtastic.org/blog/choosing-the-right-device-role"> Scegliere il ruolo giusto del dispositivo </a>.]]></string>
     <string name="i_know_what_i_m_doing">So cosa sto facendo.</string>
-    <string name="low_battery_message">Il nodo %s ha la batteria scarica (%d%%)</string>
+    <string name="low_battery_message">Il nodo %1$s ha la batteria quasi scarica (%2$d%%)</string>
     <string name="meshtastic_low_battery_notifications">Notifica di batteria scarica</string>
     <string name="low_battery_title">Poca energia rimanente nella batteria: %s</string>
     <string name="meshtastic_low_battery_temporary_remote_notifications">Notifiche batteria scarica (nodi preferiti)</string>
     <string name="baro_pressure">Pressione barometrica</string>
     <string name="mesh_via_udp_enabled">Mesh via UDP abilitato</string>
     <string name="udp_config">Configurazione UDP</string>
-    <string name="map_node_popup_details"><![CDATA[%s<br>Ultima notizia: %s<br>Ultima posizione: %s<br>Batteria: %s]]></string>
+    <string name="map_node_popup_details"><![CDATA[%1$s<br>Ricevuto l\'ultima volta: %2$s<br>Posizione più recente: %3$s<br>Batteria: %4$s]]></string>
     <string name="toggle_my_position">Attiva/disattiva posizione</string>
     <string name="user">Utente</string>
     <string name="channels">Canali</string>
@@ -646,6 +661,40 @@
     <string name="should_update_firmware">Aggiornamento Firmware Consigliato.</string>
     <string name="should_update">Per usufruire delle ultime correzioni e funzionalità, aggiorna il firmware del tuo nodo.\n\nVersione stabile più recente del firmware: %1$s</string>
     <string name="expires">Scade</string>
+    <string name="time">Ora</string>
+    <string name="date">Data</string>
+    <string name="map_filter">Filtro mappa\n</string>
+    <string name="only_favorites">Solo preferiti</string>
+    <string name="show_waypoints">Mostra Waypoint</string>
     <string name="show_precision_circle"></string>
     <string name="client_notification">Notifiche Client</string>
+    <string name="compromised_keys">Rilevate chiavi compromesse, seleziona OK per rigenerarle.</string>
+    <string name="regenerate_private_key">Rigenera Chiavi Private</string>
+    <string name="regenerate_keys_confirmation">Sei sicuro di voler rigenerare la tua chiave privata?\n\nI nodi che potrebbero aver precedentemente scambiato le chiavi con questo nodo dovranno rimuovere quel nodo ed effettuare di nuovo lo scambio di chiavi per ristabilire la sicurezza nella comunicazione.</string>
+    <string name="export_keys">Esporta Chiavi</string>
+    <string name="export_keys_confirmation">Esporta le chiavi pubbliche e private in un file. Si prega di memorizzarlo da qualche parte in modo sicuro.</string>
+    <string name="modules_unlocked">Moduli sbloccati</string>
+    <string name="remote">Controllo remoto</string>
+    <string name="node_count_template">(%1$d online / %2$d in totale)</string>
+    <string name="react">Rispondi</string>
+    <string name="disconnect">Disconnetti</string>
+    <string name="no_ble_devices">Nessun dispositivo Bluetooth trovato.</string>
+    <string name="no_network_devices">Nessun dispositivo di rete trovato.</string>
+    <string name="no_usb_devices">Nessun dispositivo trovato sulla seriale USB.</string>
+    <string name="scroll_to_bottom">Scorri fino in fondo</string>
+    <string name="meshtastic">Meshtastic</string>
+    <string name="scanning">Scansione in corso</string>
+    <string name="app_intro_back_button">Indietro</string>
+    <string name="app_intro_next_button">Avanti</string>
+    <string name="app_intro_done_button">Fatto</string>
+    <string name="app_intro_skip_button">Ignora</string>
+    <string name="warning">Attenzione</string>
+    <string name="unknown">Sconosciuto</string>
+    <!-- INSECURE_NO_PRECISE State (Yellow Open Lock) -->
+    <!-- INSECURE_PRECISE_ONLY State (Red Open Lock) -->
+    <!-- INSECURE_PRECISE_MQTT_WARNING State (Red Open Lock with Warning Badge) -->
+    <!-- Security Help Dialog Titles and Buttons (from your existing code structure) -->
+    <string name="security_icon_help_dismiss">Annulla</string>
+    <string name="message_input_label">Messaggio</string>
+    <string name="download">Scarica</string>
 </resources>

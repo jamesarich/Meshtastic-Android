@@ -35,10 +35,12 @@ data class PacketEntity(
     val reactions: List<ReactionEntity> = emptyList(),
 ) {
     suspend fun toMessage(getNode: suspend (userId: String?) -> Node) = with(packet) {
+        val node = getNode(data.from)
         Message(
             uuid = uuid,
             receivedTime = received_time,
-            node = getNode(data.from),
+            node = node,
+            fromLocal = node.user.id == DataPacket.ID_LOCAL,
             text = data.text.orEmpty(),
             time = getShortDateTime(data.time),
             snr = snr,
@@ -49,6 +51,8 @@ data class PacketEntity(
             routingError = routingError,
             packetId = packetId,
             emojis = reactions.toReaction(getNode),
+            replyId = data.replyId,
+            viaMqtt = node.viaMqtt
         )
     }
 }

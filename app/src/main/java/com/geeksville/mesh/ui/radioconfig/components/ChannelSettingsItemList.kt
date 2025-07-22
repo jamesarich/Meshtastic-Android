@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -78,6 +79,7 @@ import com.geeksville.mesh.ui.common.components.dragContainer
 import com.geeksville.mesh.ui.common.components.dragDropItemsIndexed
 import com.geeksville.mesh.ui.common.components.rememberDragDropState
 import com.geeksville.mesh.ui.radioconfig.RadioConfigViewModel
+import com.geeksville.mesh.ui.common.components.SecurityIcon
 
 @Composable
 private fun ChannelItem(
@@ -122,12 +124,15 @@ fun ChannelCard(
     enabled: Boolean,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
+    channel: Channel,
 ) = ChannelItem(
     index = index,
     title = title,
     enabled = enabled,
     onClick = onEditClick,
 ) {
+    SecurityIcon(channel)
+    Spacer(modifier = Modifier.width(10.dp))
     IconButton(onClick = { onDeleteClick() }) {
         Icon(
             imageVector = Icons.TwoTone.Close,
@@ -143,13 +148,16 @@ fun ChannelSelection(
     title: String,
     enabled: Boolean,
     isSelected: Boolean,
-    onSelected: (Boolean) -> Unit
+    onSelected: (Boolean) -> Unit,
+    channel: Channel,
 ) = ChannelItem(
     index = index,
     title = title,
     enabled = enabled,
     onClick = {},
 ) {
+    SecurityIcon(channel)
+    Spacer(modifier = Modifier.width(10.dp))
     Checkbox(
         enabled = enabled,
         checked = isSelected,
@@ -274,12 +282,14 @@ fun ChannelSettingsItemList(
                     items = settingsListInput,
                     dragDropState = dragDropState,
                 ) { index, channel, isDragging ->
+                    val channelObj = Channel(channel, loraConfig)
                     ChannelCard(
                         index = index,
                         title = channel.name.ifEmpty { primaryChannel.name },
                         enabled = enabled,
                         onEditClick = { showEditChannelDialog = index },
-                        onDeleteClick = { settingsListInput.removeAt(index) }
+                        onDeleteClick = { settingsListInput.removeAt(index) },
+                        channel = channelObj
                     )
                     if (index == 0 && !isDragging) {
                         Text(

@@ -18,7 +18,6 @@
 package com.geeksville.mesh.ui.node
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -31,6 +30,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,6 +65,8 @@ fun NodeScreen(
 
     val nodes by model.nodeList.collectAsStateWithLifecycle()
     val ourNode by model.ourNodeInfo.collectAsStateWithLifecycle()
+    val unfilteredNodes by model.unfilteredNodeList.collectAsStateWithLifecycle()
+    val ignoredNodeCount = unfilteredNodes.count { it.isIgnored }
 
     val listState = rememberLazyListState()
 
@@ -79,6 +81,10 @@ fun NodeScreen(
         )
     }
 
+    val isScrollInProgress by remember {
+        derivedStateOf { listState.isScrollInProgress }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -89,14 +95,14 @@ fun NodeScreen(
         ) {
             stickyHeader {
                 val animatedAlpha by animateFloatAsState(
-                    targetValue = if (!listState.isScrollInProgress) 1.0f else 0f,
+                    targetValue = if (!isScrollInProgress) 1.0f else 0f,
                     label = "alpha"
                 )
                 NodeFilterTextField(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceDim.copy(alpha = animatedAlpha))
                         .graphicsLayer(alpha = animatedAlpha)
+                        .background(MaterialTheme.colorScheme.surfaceDim)
                         .padding(8.dp),
                     filterText = state.filter,
                     onTextChange = model::setNodeFilterText,
@@ -110,12 +116,15 @@ fun NodeScreen(
                     onToggleOnlyDirect = model::toggleOnlyDirect,
                     showDetails = state.showDetails,
                     onToggleShowDetails = model::toggleShowDetails,
+                    showIgnored = state.showIgnored,
+                    onToggleShowIgnored = model::toggleShowIgnored,
+                    ignoredNodeCount = ignoredNodeCount,
                 )
             }
 
             items(nodes, key = { it.num }) { node ->
                 NodeItem(
-                    modifier = Modifier.animateContentSize(),
+                    modifier = Modifier.animateItem(),
                     thisNode = ourNode,
                     thatNode = node,
                     gpsFormat = state.gpsFormat,
@@ -152,7 +161,7 @@ fun NodeScreen(
 
         AnimatedVisibility(
             modifier = Modifier.align(Alignment.BottomEnd),
-            visible = !listState.isScrollInProgress &&
+            visible = !isScrollInProgress &&
                     connectionState.isConnected() &&
                     shareCapable
         ) {

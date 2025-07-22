@@ -93,7 +93,6 @@
     <string name="message_reception_time">זמן קבלת ההודעה</string>
     <string name="message_reception_state">מצב קבלת הודעה</string>
     <string name="message_delivery_status">מצב שליחת הודעה</string>
-    <string name="meshtastic_messages_notifications">התראות על הודעות</string>
     <string name="meshtastic_alerts_notifications">התראות</string>
     <string name="protocol_stress_test">בדיקת קיבולת רשת (stress test)</string>
     <string name="firmware_too_old">נדרש עדכון קושחה.</string>
@@ -201,4 +200,9 @@
     <string name="messages">הודעות</string>
     <string name="distance">מרחק</string>
     <string name="map">מפה</string>
+    <!-- INSECURE_NO_PRECISE State (Yellow Open Lock) -->
+    <!-- INSECURE_PRECISE_ONLY State (Red Open Lock) -->
+    <!-- INSECURE_PRECISE_MQTT_WARNING State (Red Open Lock with Warning Badge) -->
+    <!-- Security Help Dialog Titles and Buttons (from your existing code structure) -->
+    <string name="message_input_label">הודעה</string>
 </resources>

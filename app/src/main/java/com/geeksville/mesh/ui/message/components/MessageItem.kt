@@ -17,41 +17,41 @@
 
 package com.geeksville.mesh.ui.message.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.twotone.Cloud
-import androidx.compose.material.icons.twotone.CloudDone
-import androidx.compose.material.icons.twotone.CloudOff
-import androidx.compose.material.icons.twotone.CloudUpload
-import androidx.compose.material.icons.twotone.HowToReg
-import androidx.compose.material.icons.twotone.Warning
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardColors
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
+import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
-import com.geeksville.mesh.DataPacket
 import com.geeksville.mesh.MessageStatus
 import com.geeksville.mesh.R
+import com.geeksville.mesh.database.entity.Reaction
+import com.geeksville.mesh.model.Message
 import com.geeksville.mesh.model.Node
 import com.geeksville.mesh.ui.common.components.AutoLinkText
 import com.geeksville.mesh.ui.common.components.Rssi
@@ -62,145 +62,306 @@ import com.geeksville.mesh.ui.node.components.NodeChip
 import com.geeksville.mesh.ui.node.components.NodeMenuAction
 
 @Suppress("LongMethod", "CyclomaticComplexMethod")
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun MessageItem(
-    node: Node,
-    messageText: String?,
-    messageTime: String,
-    messageStatus: MessageStatus?,
-    selected: Boolean,
     modifier: Modifier = Modifier,
+    node: Node,
+    ourNode: Node,
+    message: Message,
+    selected: Boolean,
+    onReply: () -> Unit = {},
+    sendReaction: (String) -> Unit = {},
+    onShowReactions: () -> Unit = {},
+    emojis: List<Reaction> = emptyList(),
     onClick: () -> Unit = {},
     onLongClick: () -> Unit = {},
     onAction: (NodeMenuAction) -> Unit = {},
     onStatusClick: () -> Unit = {},
-    onSendReaction: (String) -> Unit = {},
     isConnected: Boolean,
-    snr: Float,
-    rssi: Int,
-    hopsAway: String?,
-) = Row(
+    onNavigateToOriginalMessage: (Int) -> Unit = {},
+) = Column(
     modifier = modifier
         .fillMaxWidth()
         .background(color = if (selected) Color.Gray else MaterialTheme.colorScheme.background),
-    verticalAlignment = Alignment.CenterVertically,
 ) {
-    val fromLocal = node.user.id == DataPacket.ID_LOCAL
-    val messageColor = if (fromLocal) {
-        MaterialTheme.colorScheme.secondaryContainer
-    } else {
-        MaterialTheme.colorScheme.tertiaryContainer
-    }
-    val (topStart, topEnd) = if (fromLocal) 12.dp to 4.dp else 4.dp to 12.dp
-    val messageModifier = if (fromLocal) {
-        Modifier.padding(start = 48.dp, top = 8.dp, end = 8.dp, bottom = 6.dp)
-    } else {
-        Modifier.padding(start = 8.dp, top = 8.dp, end = 0.dp, bottom = 6.dp)
-    }
-    if (!fromLocal) {
-        NodeChip(
-            node = node,
+    val containerColor = Color(
+        if (message.fromLocal) {
+            ourNode.colors.second
+        } else {
+            node.colors.second
+        }
+    ).copy(alpha = 0.2f)
+    val cardColors = CardDefaults.cardColors().copy(
+        containerColor = containerColor,
+        contentColor = contentColorFor(containerColor)
+    )
+    val messageModifier = Modifier.padding(start = 8.dp, top = 8.dp, end = 8.dp)
+    Box {
+        Card(
             modifier = Modifier
-                .padding(start = 8.dp, end = 4.dp),
-            onAction = onAction,
-            isConnected = isConnected,
-            isThisNode = false,
-        )
-    }
-    Card(
-        modifier = Modifier
-            .weight(1f)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick,
-            )
-            .then(messageModifier),
-        colors = CardDefaults.cardColors(
-            containerColor = messageColor
-        ),
-        shape = RoundedCornerShape(topStart, topEnd, bottomStart = 12.dp, bottomEnd = 12.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .align(if (message.fromLocal) Alignment.BottomEnd else Alignment.BottomStart)
+                .padding(
+                    top = 4.dp,
+                    start = if (!message.fromLocal) 0.dp else 16.dp,
+                    end = if (message.fromLocal) 0.dp else 16.dp,
+                )
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                )
+                .then(messageModifier),
+            colors = cardColors,
         ) {
             Column(
-                modifier = Modifier.padding(top = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth(),
             ) {
-                if (!fromLocal) {
-                    Text(
-                        text = with(node.user) { "$longName ($id)" },
-                        modifier = Modifier.padding(bottom = 4.dp),
-                        overflow = TextOverflow.Ellipsis,
-                        maxLines = 1,
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                }
-                AutoLinkText(
-                    text = messageText.orEmpty(),
+                OriginalMessageSnippet(
+                    message = message,
+                    ourNode = ourNode,
+                    cardColors = cardColors,
+                    onNavigateToOriginalMessage = onNavigateToOriginalMessage
                 )
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    if (!fromLocal) {
-                        if (hopsAway == null) {
-                            Snr(snr, fontSize = MaterialTheme.typography.bodySmall.fontSize)
-                            Spacer(Modifier.weight(1f))
-                            Rssi(rssi, fontSize = MaterialTheme.typography.bodySmall.fontSize)
-                        } else { Text(
-                            text = hopsAway,
-                            fontSize = MaterialTheme.typography.bodySmall.fontSize,
-                        ) }
-                        Spacer(Modifier.weight(1f))
-                    }
-                    Text(
-                        text = messageTime,
-                        fontSize = MaterialTheme.typography.bodySmall.fontSize,
+                    NodeChip(
+                        node = if (message.fromLocal) ourNode else node,
+                        onAction = onAction,
+                        isConnected = isConnected,
+                        isThisNode = message.fromLocal,
                     )
-                    AnimatedVisibility(visible = fromLocal) {
+                    Text(
+                        text = with(if (message.fromLocal) ourNode.user else node.user) { "$longName ($id)" },
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.weight(1f, fill = true)
+                    )
+                    if (message.viaMqtt) {
                         Icon(
-                            imageVector = when (messageStatus) {
-                                MessageStatus.RECEIVED -> Icons.TwoTone.HowToReg
-                                MessageStatus.QUEUED -> Icons.TwoTone.CloudUpload
-                                MessageStatus.DELIVERED -> Icons.TwoTone.CloudDone
-                                MessageStatus.ENROUTE -> Icons.TwoTone.Cloud
-                                MessageStatus.ERROR -> Icons.TwoTone.CloudOff
-                                else -> Icons.TwoTone.Warning
-                            },
-                            contentDescription = stringResource(R.string.message_delivery_status),
-                            modifier = Modifier
-                                .padding(start = 8.dp)
-                                .clickable { onStatusClick() },
+                            Icons.Default.Cloud,
+                            contentDescription = stringResource(R.string.via_mqtt),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    MessageActions(
+                        isLocal = message.fromLocal,
+                        status = message.status,
+                        onSendReaction = sendReaction,
+                        onSendReply = onReply,
+                        onStatusClick = onStatusClick,
+                    )
+                }
+
+                Column(
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                ) {
+                    AutoLinkText(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        text = message.text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = cardColors.contentColor
+                    )
+
+                    val topPadding = if (!message.fromLocal) 2.dp else 0.dp
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = topPadding, bottom = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (!message.fromLocal) {
+                            if (message.hopsAway == 0) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Snr(
+                                        message.snr,
+                                        fontSize = MaterialTheme.typography.labelSmall.fontSize
+                                    )
+                                    Rssi(
+                                        message.rssi,
+                                        fontSize = MaterialTheme.typography.labelSmall.fontSize
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = stringResource(
+                                        R.string.hops_away_template,
+                                        message.hopsAway
+                                    ),
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            text = message.time,
+                            style = MaterialTheme.typography.labelSmall,
                         )
                     }
                 }
             }
         }
     }
-    if (!fromLocal) {
-        ReactionButton(Modifier.padding(4.dp), onSendReaction)
+    ReactionRow(
+        modifier = Modifier
+            .fillMaxWidth(),
+        reactions = emojis,
+        onSendReaction = sendReaction,
+        onShowReactions = onShowReactions,
+    )
+}
+
+@Composable
+private fun OriginalMessageSnippet(
+    message: Message,
+    ourNode: Node,
+    cardColors: CardColors = CardDefaults.cardColors(),
+    onNavigateToOriginalMessage: (Int) -> Unit
+) {
+    val originalMessage = message.originalMessage
+    if (originalMessage != null && originalMessage.packetId != 0) {
+        val originalMessageNode =
+            if (originalMessage.fromLocal) ourNode else originalMessage.node
+        OutlinedCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp)
+                .clickable { onNavigateToOriginalMessage(originalMessage.packetId) },
+            colors = cardColors,
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(
+                    Icons.Default.FormatQuote,
+                    contentDescription = stringResource(R.string.reply), // Add to strings.xml
+                )
+                Text(
+                    text = originalMessageNode.user.shortName,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    modifier = Modifier.weight(1f, fill = true),
+                    text = originalMessage.text, // Should not be null if isAReply is true
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1, // Keep snippet brief
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
 
 @PreviewLightDark
 @Composable
 private fun MessageItemPreview() {
+    val sent = Message(
+        text = stringResource(R.string.sample_message),
+        time = "10:00",
+        fromLocal = true,
+        status = MessageStatus.DELIVERED,
+        snr = 20.5f,
+        rssi = 90,
+        hopsAway = 0,
+        uuid = 1L,
+        receivedTime = System.currentTimeMillis(),
+        node = NodePreviewParameterProvider().mickeyMouse,
+        read = false,
+        routingError = 0,
+        packetId = 4545,
+        emojis = listOf(),
+        replyId = null,
+        viaMqtt = false,
+    )
+    val received = Message(
+        text = "This is a received message",
+        time = "10:10",
+        fromLocal = false,
+        status = MessageStatus.RECEIVED,
+        snr = 2.5f,
+        rssi = 90,
+        hopsAway = 0,
+        uuid = 2L,
+        receivedTime = System.currentTimeMillis(),
+        node = NodePreviewParameterProvider().minnieMouse,
+        read = false,
+        routingError = 0,
+        packetId = 4545,
+        emojis = listOf(),
+        replyId = null,
+        viaMqtt = false,
+    )
+    val receivedWithOriginalMessage = Message(
+        text = "This is a received message w/ original, this is a longer message to test next-lining.",
+        time = "10:20",
+        fromLocal = false,
+        status = MessageStatus.RECEIVED,
+        snr = 2.5f,
+        rssi = 90,
+        hopsAway = 2,
+        uuid = 2L,
+        receivedTime = System.currentTimeMillis(),
+        node = NodePreviewParameterProvider().minnieMouse,
+        read = false,
+        routingError = 0,
+        packetId = 4545,
+        emojis = listOf(),
+        replyId = null,
+        originalMessage = received,
+        viaMqtt = true,
+    )
     AppTheme {
-        MessageItem(
-            node = NodePreviewParameterProvider().values.first(),
-            messageText = stringResource(R.string.sample_message),
-            messageTime = "10:00",
-            messageStatus = MessageStatus.DELIVERED,
-            selected = false,
-            isConnected = true,
-            snr = 20.5f,
-            rssi = 90,
-            hopsAway = null
-        )
+        Column(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.background)
+                .padding(vertical = 16.dp),
+        ) {
+            MessageItem(
+                message = sent,
+                node = sent.node,
+                selected = false,
+                onClick = {},
+                onLongClick = {},
+                onStatusClick = {},
+                isConnected = true,
+                ourNode = sent.node,
+            )
+
+            MessageItem(
+                message = received,
+                node = received.node,
+                selected = false,
+                onClick = {},
+                onLongClick = {},
+                onStatusClick = {},
+                isConnected = true,
+                ourNode = sent.node,
+            )
+
+            MessageItem(
+                message = receivedWithOriginalMessage,
+                node = receivedWithOriginalMessage.node,
+                selected = false,
+                onClick = {},
+                onLongClick = {},
+                onStatusClick = {},
+                isConnected = true,
+                ourNode = sent.node,
+            )
+        }
     }
 }

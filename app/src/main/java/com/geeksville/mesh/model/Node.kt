@@ -27,8 +27,11 @@ import com.geeksville.mesh.TelemetryProtos.EnvironmentMetrics
 import com.geeksville.mesh.TelemetryProtos.PowerMetrics
 import com.geeksville.mesh.database.entity.NodeEntity
 import com.geeksville.mesh.util.GPSFormat
+import com.geeksville.mesh.util.UnitConversions.celsiusToFahrenheit
 import com.geeksville.mesh.util.latLongToMeter
 import com.geeksville.mesh.util.toDistanceString
+import com.google.protobuf.ByteString
+import com.google.protobuf.kotlin.isNotEmpty
 
 @Suppress("MagicNumber")
 data class Node(
@@ -48,6 +51,7 @@ data class Node(
     val environmentMetrics: EnvironmentMetrics = EnvironmentMetrics.getDefaultInstance(),
     val powerMetrics: PowerMetrics = PowerMetrics.getDefaultInstance(),
     val paxcounter: PaxcountProtos.Paxcount = PaxcountProtos.Paxcount.getDefaultInstance(),
+    val publicKey: ByteString? = null,
 ) {
     val colors: Pair<Int, Int>
         get() { // returns foreground and background @ColorInt for each 'num'
@@ -59,8 +63,8 @@ data class Node(
         }
 
     val isUnknownUser get() = user.hwModel == MeshProtos.HardwareModel.UNSET
-    val hasPKC get() = !user.publicKey.isEmpty
-    val mismatchKey get() = user.publicKey == NodeEntity.ERROR_BYTE_STRING
+    val hasPKC get() = (publicKey ?: user.publicKey).isNotEmpty()
+    val mismatchKey get() = (publicKey ?: user.publicKey) == NodeEntity.ERROR_BYTE_STRING
 
     val hasEnvironmentMetrics: Boolean
         get() = environmentMetrics != EnvironmentMetrics.getDefaultInstance()
@@ -89,11 +93,9 @@ data class Node(
         else -> latLongToMeter(latitude, longitude, o.latitude, o.longitude).toInt()
     }
 
-    // @return a nice human readable string for the distance, or null for unknown
-    fun distanceStr(o: Node, displayUnits: Int = 0): String? = distance(o)?.let { dist ->
-        val system = DisplayConfig.DisplayUnits.forNumber(displayUnits)
-        return if (dist > 0) dist.toDistanceString(system) else null
-    }
+    // @return formatted distance string to another node, using the given display units
+    fun distanceStr(o: Node, displayUnits: DisplayConfig.DisplayUnits): String? =
+        distance(o)?.toDistanceString(displayUnits)
 
     // @return bearing to the other position in degrees
     fun bearing(o: Node?): Int? = when {
@@ -112,8 +114,7 @@ data class Node(
     private fun EnvironmentMetrics.getDisplayString(isFahrenheit: Boolean): String {
         val temp = if (temperature != 0f) {
             if (isFahrenheit) {
-                val fahrenheit = temperature * 1.8F + 32
-                "%.1f°F".format(fahrenheit)
+                "%.1f°F".format(celsiusToFahrenheit(temperature))
             } else {
                 "%.1f°C".format(temperature)
             }
@@ -121,6 +122,20 @@ data class Node(
             null
         }
         val humidity = if (relativeHumidity != 0f) "%.0f%%".format(relativeHumidity) else null
+        val soilTemperatureStr = if (soilTemperature != 0f) {
+            if (isFahrenheit) {
+                "%.1f°F".format(celsiusToFahrenheit(soilTemperature))
+            } else {
+                "%.1f°C".format(soilTemperature)
+            }
+        } else {
+            null
+        }
+        val soilMoistureRange = 0..100
+        val soilMoisture =
+            if (soilMoisture in soilMoistureRange && soilTemperature != 0f) {
+                "%d%%".format(soilMoisture)
+            } else { null }
         val voltage = if (this.voltage != 0f) "%.2fV".format(this.voltage) else null
         val current = if (current != 0f) "%.1fmA".format(current) else null
         val iaq = if (iaq != 0) "IAQ: $iaq" else null
@@ -128,6 +143,8 @@ data class Node(
         return listOfNotNull(
             temp,
             humidity,
+            soilTemperatureStr,
+            soilMoisture,
             voltage,
             current,
             iaq,
@@ -151,6 +168,5 @@ fun ConfigProtos.Config.DeviceConfig.Role?.isUnmessageableRole(): Boolean = this
     ConfigProtos.Config.DeviceConfig.Role.ROUTER_LATE,
     ConfigProtos.Config.DeviceConfig.Role.SENSOR,
     ConfigProtos.Config.DeviceConfig.Role.TRACKER,
-    ConfigProtos.Config.DeviceConfig.Role.TAK,
     ConfigProtos.Config.DeviceConfig.Role.TAK_TRACKER,
 )

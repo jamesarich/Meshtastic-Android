@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.PermScanWifi
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Power
 import androidx.compose.material.icons.filled.Router
 import androidx.compose.runtime.remember
@@ -42,6 +43,7 @@ import com.geeksville.mesh.ui.metrics.PositionLogScreen
 import com.geeksville.mesh.ui.metrics.PowerMetricsScreen
 import com.geeksville.mesh.ui.metrics.SignalMetricsScreen
 import com.geeksville.mesh.ui.metrics.TracerouteLogScreen
+import com.geeksville.mesh.ui.metrics.PaxMetricsScreen
 import com.geeksville.mesh.ui.node.NodeDetailScreen
 import com.geeksville.mesh.ui.node.NodeMapScreen
 import com.geeksville.mesh.ui.node.NodeScreen
@@ -55,7 +57,7 @@ sealed class NodesRoutes {
     data object NodesGraph : Graph
 
     @Serializable
-    data object NodeDetailGraph : Graph
+    data class NodeDetailGraph(val destNum: Int? = null) : Graph
 
     @Serializable
     data class NodeDetail(val destNum: Int? = null) : Route
@@ -86,6 +88,9 @@ sealed class NodeDetailRoutes {
 
     @Serializable
     data object HostMetricsLog : Route
+
+    @Serializable
+    data object PaxMetrics : Route
 }
 
 fun NavGraphBuilder.nodesGraph(
@@ -102,7 +107,7 @@ fun NavGraphBuilder.nodesGraph(
                     navController.navigate(ContactsRoutes.Messages(it))
                 },
                 navigateToNodeDetails = {
-                    navController.navigate(NodesRoutes.NodeDetail(it))
+                    navController.navigate(NodesRoutes.NodeDetailGraph(it))
                 },
             )
         }
@@ -115,11 +120,12 @@ fun NavGraphBuilder.nodeDetailGraph(
     uiViewModel: UIViewModel,
 ) {
     navigation<NodesRoutes.NodeDetailGraph>(
-        startDestination = NodesRoutes.NodeDetail()
+        startDestination = NodesRoutes.NodeDetail(),
     ) {
         composable<NodesRoutes.NodeDetail> { backStackEntry ->
             val parentEntry = remember(backStackEntry) {
-                navController.getBackStackEntry<NodesRoutes.NodeDetailGraph>()
+                val parentRoute = backStackEntry.destination.parent!!.route!!
+                navController.getBackStackEntry(parentRoute)
             }
             NodeDetailScreen(
                 uiViewModel = uiViewModel,
@@ -129,13 +135,17 @@ fun NavGraphBuilder.nodeDetailGraph(
                 onNavigate = {
                     navController.navigate(it)
                 },
+                onNavigateUp = {
+                    navController.navigateUp()
+                },
                 viewModel = hiltViewModel(parentEntry),
             )
         }
         NodeDetailRoute.entries.forEach { nodeDetailRoute ->
             composable(nodeDetailRoute.route::class) { backStackEntry ->
                 val parentEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry<NodesRoutes.NodeDetailGraph>()
+                    val parentRoute = backStackEntry.destination.parent!!.route!!
+                    navController.getBackStackEntry(parentRoute)
                 }
                 when (nodeDetailRoute) {
                     NodeDetailRoute.DEVICE -> DeviceMetricsScreen(hiltViewModel(parentEntry))
@@ -156,6 +166,7 @@ fun NavGraphBuilder.nodeDetailGraph(
 
                     NodeDetailRoute.POWER -> PowerMetricsScreen(hiltViewModel(parentEntry))
                     NodeDetailRoute.HOST -> HostMetricsLogScreen(hiltViewModel(parentEntry))
+                    NodeDetailRoute.PAX -> PaxMetricsScreen(hiltViewModel(parentEntry))
                 }
             }
         }
@@ -175,4 +186,5 @@ enum class NodeDetailRoute(
     TRACEROUTE(R.string.traceroute, NodeDetailRoutes.TracerouteLog, Icons.Default.PermScanWifi),
     POWER(R.string.power, NodeDetailRoutes.PowerMetrics, Icons.Default.Power),
     HOST(R.string.host, NodeDetailRoutes.HostMetricsLog, Icons.Default.Memory),
+    PAX(R.string.pax, NodeDetailRoutes.PaxMetrics, Icons.Default.People),
 }

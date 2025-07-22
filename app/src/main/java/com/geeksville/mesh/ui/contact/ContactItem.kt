@@ -23,6 +23,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -46,9 +47,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import com.geeksville.mesh.AppOnlyProtos
 import com.geeksville.mesh.R
 import com.geeksville.mesh.model.Contact
 import com.geeksville.mesh.ui.common.theme.AppTheme
+import com.geeksville.mesh.ui.common.components.SecurityIcon
 
 @Suppress("LongMethod")
 @Composable
@@ -58,6 +61,7 @@ fun ContactItem(
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {},
     onLongClick: () -> Unit = {},
+    channels: AppOnlyProtos.ChannelSet? = null,
 ) = with(contact) {
     Card(
         modifier = modifier
@@ -110,13 +114,27 @@ fun ContactItem(
                 ) {
                     Text(
                         text = longName,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f)
                     )
-                    Text(
-                        text = lastMessageTime.orEmpty(),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = MaterialTheme.typography.labelLarge.fontSize,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Show unlock icon for broadcast with default PSK
+                        val isBroadcast = contact.contactKey.getOrNull(1) == '^' ||
+                             contact.contactKey.endsWith("^all") ||
+                             contact.contactKey.endsWith("^broadcast")
+                        if (isBroadcast && channels != null) {
+                            val channelIndex = contact.contactKey[0].digitToIntOrNull()
+                            channelIndex?.let { index ->
+                                SecurityIcon(channels, index)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text(
+                            text = lastMessageTime.orEmpty(),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = MaterialTheme.typography.labelLarge.fontSize,
+                            modifier = Modifier.width(80.dp),
+                        )
+                    }
                 }
                 Row(
                     modifier = Modifier
@@ -172,7 +190,7 @@ private fun ContactItemPreview() {
                 unreadCount = 2,
                 messageCount = 10,
                 isMuted = true,
-                isUnmessageable = false,
+                isUnmessageable = false
             ),
             selected = false,
         )

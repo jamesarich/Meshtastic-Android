@@ -21,9 +21,10 @@ import android.annotation.SuppressLint
 import android.app.Application
 import android.bluetooth.BluetoothDevice
 import android.content.Context
+import android.content.SharedPreferences
 import android.hardware.usb.UsbManager
 import android.os.RemoteException
-import androidx.lifecycle.LiveData
+import androidx.core.content.edit
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -42,6 +43,7 @@ import com.hoho.android.usbserial.driver.UsbSerialDriver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
@@ -49,11 +51,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
+import org.json.JSONArray
+import org.json.JSONObject
 import javax.inject.Inject
 
 @HiltViewModel
+@Suppress("LongParameterList", "TooManyFunctions")
 class BTScanModel @Inject constructor(
     private val application: Application,
     private val serviceRepository: ServiceRepository,
@@ -62,29 +66,40 @@ class BTScanModel @Inject constructor(
     private val usbManagerLazy: dagger.Lazy<UsbManager>,
     private val networkRepository: NetworkRepository,
     private val radioInterfaceService: RadioInterfaceService,
+    private val preferences: SharedPreferences,
 ) : ViewModel(), Logging {
 
     private val context: Context get() = application.applicationContext
     val devices = MutableLiveData<MutableMap<String, DeviceListEntry>>(mutableMapOf())
     val errorText = MutableLiveData<String?>(null)
 
-    private val showMockInterface: StateFlow<Boolean> get() =
-        MutableStateFlow(radioInterfaceService.isMockInterface()).asStateFlow()
+    private val recentIpAddresses = MutableStateFlow(getRecentAddresses())
+
+    private val showMockInterface: StateFlow<Boolean>
+        get() =
+            MutableStateFlow(radioInterfaceService.isMockInterface()).asStateFlow()
 
     init {
         combine(
             bluetoothRepository.state,
             networkRepository.resolvedList,
+            recentIpAddresses.asStateFlow(),
             usbRepository.serialDevicesWithDrivers,
             showMockInterface,
-        ) { ble, tcp, usb, showMockInterface ->
+        ) { ble, tcp, recent, usb, showMockInterface ->
             devices.value = mutableMapOf<String, DeviceListEntry>().apply {
                 fun addDevice(entry: DeviceListEntry) {
                     this[entry.fullAddress] = entry
                 }
 
                 // Include a placeholder for "None"
-                addDevice(DeviceListEntry(context.getString(R.string.none), NO_DEVICE_SELECTED, true))
+                addDevice(
+                    DeviceListEntry(
+                        context.getString(R.string.none),
+                        NO_DEVICE_SELECTED,
+                        true
+                    )
+                )
 
                 if (showMockInterface) {
                     addDevice(DeviceListEntry("Demo Mode", "m", true))
@@ -97,7 +112,24 @@ class BTScanModel @Inject constructor(
                 // Include Network Service Discovery
                 tcp.forEach { service ->
                     val address = service.toAddressString()
-                    addDevice(DeviceListEntry(address, "t$address", true))
+                    val txtRecords = service.attributes // Map<String, ByteArray?>
+                    val shortNameBytes = txtRecords["shortname"]
+                    val idBytes = txtRecords["id"]
+
+                    val shortName = shortNameBytes?.let { String(it, Charsets.UTF_8) }
+                        ?: context.getString(R.string.meshtastic)
+                    val deviceId =
+                        idBytes?.let { String(it, Charsets.UTF_8) }?.replace("!", "")
+                    var displayName = shortName
+                    if (deviceId != null) {
+                        displayName += "_$deviceId"
+                    }
+                    addDevice(DeviceListEntry(displayName, "t$address", true))
+                }
+
+                // Include saved IP connections
+                recent.forEach { (address, name) ->
+                    addDevice(DeviceListEntry(name, address, true))
                 }
 
                 usb.forEach { (_, d) ->
@@ -127,6 +159,9 @@ class BTScanModel @Inject constructor(
         val isBLE: Boolean get() = prefix == 'x'
         val isUSB: Boolean get() = prefix == 's'
         val isTCP: Boolean get() = prefix == 't'
+
+        val isMock: Boolean get() = prefix == 'm'
+        val isDisconnect: Boolean get() = prefix == 'n'
     }
 
     @SuppressLint("MissingPermission")
@@ -157,10 +192,6 @@ class BTScanModel @Inject constructor(
 
     private var scanJob: Job? = null
 
-    val selectedAddress get() = radioInterfaceService.getDeviceAddress()
-    val selectedBluetooth: Boolean get() = selectedAddress?.getOrNull(0) == 'x'
-
-    // / Use the string for the NopInterface
     val selectedAddressFlow: StateFlow<String?> = radioInterfaceService.currentDeviceAddressFlow
 
     val selectedNotNullFlow: StateFlow<String> = selectedAddressFlow
@@ -265,11 +296,76 @@ class BTScanModel @Inject constructor(
             }.launchIn(viewModelScope)
     }
 
+    private fun getRecentAddresses(): List<Pair<String, String>> {
+        val jsonAddresses = preferences.getString("recent-ip-addresses", "[]") ?: "[]"
+        val jsonArray = JSONArray(jsonAddresses)
+        var needsMigration = false
+
+        val listAddresses = (0 until jsonArray.length()).mapNotNull { i ->
+            when (val item = jsonArray.get(i)) {
+                is JSONObject -> {
+                    // Modern format: JSONObject with address and name
+                    item.getString("address") to item.getString("name")
+                }
+
+                is String -> {
+                    // Old format: just the address string
+                    needsMigration = true
+                    item to context.getString(R.string.meshtastic) // [3]
+                }
+
+                else -> {
+                    // Unknown format, log or handle as an error if necessary
+                    warn("Unknown item type in recent IP addresses: $item")
+                    null
+                }
+            }
+        }
+
+        // If migration was needed for any item, rewrite the entire list in the new format
+        if (needsMigration) {
+            setRecentAddresses(listAddresses)
+        }
+        return listAddresses
+    }
+
+    private fun setRecentAddresses(addresses: List<Pair<String, String>>) {
+        val jsonArray = JSONArray()
+        addresses.forEach { (address, name) ->
+            val obj = JSONObject()
+            obj.put("address", address)
+            obj.put("name", name)
+            jsonArray.put(obj)
+        }
+        preferences.edit {
+            putString("recent-ip-addresses", jsonArray.toString())
+        }
+        recentIpAddresses.value = addresses
+    }
+
+    // Remove 'name' parameter from addRecentAddress and related logic
+    fun addRecentAddress(address: String, overrideName: String? = null) {
+        if (!address.startsWith("t")) return
+        val existingItems = getRecentAddresses()
+        val updatedList = mutableListOf<Pair<String, String>>()
+        val displayName = overrideName ?: context.getString(R.string.meshtastic)
+        updatedList.add(address to displayName)
+        updatedList.addAll(existingItems.filter { it.first != address }.take(2))
+        setRecentAddresses(updatedList)
+    }
+
+    fun removeRecentAddress(address: String) {
+        val existingItems = getRecentAddresses()
+        val updatedList = existingItems.filter { it.first != address }
+        setRecentAddresses(updatedList)
+    }
+
     // Called by the GUI when a new device has been selected by the user
     // @returns true if we were able to change to that item
     fun onSelected(it: DeviceListEntry): Boolean {
         // If the device is paired, let user select it, otherwise start the pairing flow
         if (it.bonded) {
+            addRecentAddress(it.fullAddress, connectedNodeLongName)
             changeDeviceAddress(it.fullAddress)
             return true
         } else {
@@ -288,8 +384,11 @@ class BTScanModel @Inject constructor(
         }
     }
 
-    private val _spinner = MutableLiveData(false)
-    val spinner: LiveData<Boolean> get() = _spinner
+    private val _spinner = MutableStateFlow(false)
+    val spinner: StateFlow<Boolean> get() = _spinner.asStateFlow()
+
+    // Add a new property to hold the connected node's long name
+    var connectedNodeLongName: String? = null
 }
 
 const val NO_DEVICE_SELECTED = "n"

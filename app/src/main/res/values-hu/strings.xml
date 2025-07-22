@@ -31,6 +31,7 @@
     <string name="node_sort_hops_away">Ugrás Messzire</string>
     <string name="node_sort_last_heard">Utoljára hallott</string>
     <string name="node_sort_via_mqtt">MQTT-n Keresztül</string>
+    <string name="via_mqtt">MQTT-n Keresztül</string>
     <string name="unrecognized">Ismeretlen</string>
     <string name="message_status_enroute">Visszajelzésre vár</string>
     <string name="message_status_queued">Elküldésre vár</string>
@@ -114,7 +115,6 @@
     <string name="message_reception_time">üzenet fogadásának ideje</string>
     <string name="message_reception_state">üzenet fogadásának állapota</string>
     <string name="message_delivery_status">Üzenet kézbesítésének állapota</string>
-    <string name="meshtastic_messages_notifications">Üzenet értesítések</string>
     <string name="protocol_stress_test">Protokoll stressz teszt</string>
     <string name="firmware_too_old">Firmware frissítés szükséges.</string>
     <string name="firmware_old">A rádió firmware túl régi ahhoz, hogy a programmal kommunikálni tudjon. További tudnivalókat a <a href="https://meshtastic.org/docs/getting-started/flashing-firmware">firmware frissítés leírásában</a> talál, a Github-on.</string>
@@ -260,4 +260,9 @@
     <string name="timeout">Időtúllépés</string>
     <string name="distance">Távolság</string>
     <string name="map">Térkép</string>
+    <!-- INSECURE_NO_PRECISE State (Yellow Open Lock) -->
+    <!-- INSECURE_PRECISE_ONLY State (Red Open Lock) -->
+    <!-- INSECURE_PRECISE_MQTT_WARNING State (Red Open Lock with Warning Badge) -->
+    <!-- Security Help Dialog Titles and Buttons (from your existing code structure) -->
+    <string name="message_input_label">Üzenet</string>
 </resources>

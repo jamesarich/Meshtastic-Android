@@ -27,6 +27,7 @@
     <string name="node_sort_hops_away">Skokov stran</string>
     <string name="node_sort_last_heard">Nazadnje slišano</string>
     <string name="node_sort_via_mqtt">Preko MQTT</string>
+    <string name="via_mqtt">Preko MQTT</string>
     <string name="unrecognized">Neprepoznano</string>
     <string name="message_status_enroute">Čakanje na potrditev</string>
     <string name="message_status_queued">V čakalni vrsti za pošiljanje</string>
@@ -135,7 +136,6 @@
     <string name="message_reception_time">čas prejetega sporočila</string>
     <string name="message_reception_state">stanje prejetega sporočila</string>
     <string name="message_delivery_status">Stanje poslanega sporočila</string>
-    <string name="meshtastic_messages_notifications">Obvestila o sporočilu</string>
     <string name="protocol_stress_test">Protokol stresni test</string>
     <string name="firmware_too_old">Zastarela programska oprema.</string>
     <string name="firmware_old">Vdelana programska oprema radijskega sprejemnika je za pogovor s to aplikacijo prestara. Za več informacij o tem glejte<a href="https://meshtastic.org/docs/getting-started/flashing-firmware">naš vodnik za namestitev strojne programske opreme</a>.</string>
@@ -312,4 +312,9 @@
     <string name="private_key">Zasebni ključ</string>
     <string name="timeout">Časovna omejitev</string>
     <string name="distance">Razdalja</string>
+    <!-- INSECURE_NO_PRECISE State (Yellow Open Lock) -->
+    <!-- INSECURE_PRECISE_ONLY State (Red Open Lock) -->
+    <!-- INSECURE_PRECISE_MQTT_WARNING State (Red Open Lock with Warning Badge) -->
+    <!-- Security Help Dialog Titles and Buttons (from your existing code structure) -->
+    <string name="message_input_label">Sporočilo</string>
 </resources>

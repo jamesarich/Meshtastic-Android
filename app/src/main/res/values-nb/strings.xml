@@ -27,6 +27,7 @@
     <string name="node_sort_hops_away">Hopp unna</string>
     <string name="node_sort_last_heard">Sist hørt</string>
     <string name="node_sort_via_mqtt">via MQTT</string>
+    <string name="via_mqtt">via MQTT</string>
     <string name="unrecognized">Ikke gjenkjent</string>
     <string name="message_status_enroute">Venter på bekreftelse</string>
     <string name="message_status_queued">I kø for å sende</string>
@@ -135,7 +136,6 @@
     <string name="message_reception_time">melding mottat tid</string>
     <string name="message_reception_state">melding mottaksstatus</string>
     <string name="message_delivery_status">Melding leveringsstatus</string>
-    <string name="meshtastic_messages_notifications">Meldingsvarsler</string>
     <string name="protocol_stress_test">Protokoll stresstest</string>
     <string name="firmware_too_old">Firmwareoppdatering kreves.</string>
     <string name="firmware_old">Radiofirmwaren er for gammel til å snakke med denne applikasjonen. For mer informasjon om dette se <a href="https://meshtastic.org/docs/getting-started/flashing-firmware">vår Firmware installasjonsveiledning</a>.</string>
@@ -308,4 +308,9 @@
     <string name="private_key">Privat nøkkel</string>
     <string name="timeout">Tidsavbrudd</string>
     <string name="distance">Distanse</string>
+    <!-- INSECURE_NO_PRECISE State (Yellow Open Lock) -->
+    <!-- INSECURE_PRECISE_ONLY State (Red Open Lock) -->
+    <!-- INSECURE_PRECISE_MQTT_WARNING State (Red Open Lock with Warning Badge) -->
+    <!-- Security Help Dialog Titles and Buttons (from your existing code structure) -->
+    <string name="message_input_label">Melding</string>
 </resources>

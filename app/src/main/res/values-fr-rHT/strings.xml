@@ -26,6 +26,7 @@
     <string name="node_sort_hops_away">Sote lwen</string>
     <string name="node_sort_last_heard">Dènye fwa li tande</string>
     <string name="node_sort_via_mqtt">atravè MQTT</string>
+    <string name="via_mqtt">atravè MQTT</string>
     <string name="unrecognized">Inkonu</string>
     <string name="message_status_enroute">Ap tann pou li rekonèt</string>
     <string name="message_status_queued">Kwen pou voye</string>
@@ -127,7 +128,6 @@
     <string name="message_reception_time">Tan resepsyon mesaj</string>
     <string name="message_reception_state">Eta resepsyon mesaj</string>
     <string name="message_delivery_status">Eta livrezon mesaj</string>
-    <string name="meshtastic_messages_notifications">Notifikasyon mesaj</string>
     <string name="protocol_stress_test">Tès estrès pwotokòl</string>
     <string name="firmware_too_old">Nouvo mizajou mikwo lojisyèl obligatwa.</string>
     <string name="firmware_old">Mikwo lojisyèl radyo a twò ansyen pou li kominike ak aplikasyon sa a. Pou plis enfòmasyon sou sa, gade <a href="https://meshtastic.org/docs/getting-started/flashing-firmware">gid enstalasyon mikwo lojisyèl nou an</a>.</string>
@@ -280,4 +280,9 @@
     <string name="traceroute_diff">Hops vèsus %1$d Hops tounen %2$d</string>
     <string name="timeout">Tan pase</string>
     <string name="distance">Distans</string>
+    <!-- INSECURE_NO_PRECISE State (Yellow Open Lock) -->
+    <!-- INSECURE_PRECISE_ONLY State (Red Open Lock) -->
+    <!-- INSECURE_PRECISE_MQTT_WARNING State (Red Open Lock with Warning Badge) -->
+    <!-- Security Help Dialog Titles and Buttons (from your existing code structure) -->
+    <string name="message_input_label">Mesaj</string>
 </resources>

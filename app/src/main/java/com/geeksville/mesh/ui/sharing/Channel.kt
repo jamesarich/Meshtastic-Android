@@ -448,9 +448,12 @@ private fun ChannelListView(
     AdaptiveTwoPane(
         first = {
             channelSet.settingsList.forEachIndexed { index, channel ->
+                val channelObj = Channel(channel, channelSet.loraConfig)
+                val displayTitle = channel.name.ifEmpty { modemPresetName }
+
                 ChannelSelection(
                     index = index,
-                    title = channel.name.ifEmpty { modemPresetName },
+                    title = displayTitle,
                     enabled = enabled,
                     isSelected = channelSelections[index],
                     onSelected = {
@@ -458,6 +461,7 @@ private fun ChannelListView(
                             channelSelections[index] = it
                         }
                     },
+                    channel = channelObj
                 )
             }
             OutlinedButton(

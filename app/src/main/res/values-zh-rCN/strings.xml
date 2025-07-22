@@ -21,7 +21,8 @@
     <string name="main_tab_map">地图</string>
     <string name="main_tab_channel">频道</string>
     <string name="main_tab_settings">设置</string>
-    <string name="node_filter_placeholder">筛选器csvfganw</string>
+    <string name="fallback_node_name">Meshtastic %s</string>
+    <string name="node_filter_placeholder">筛选</string>
     <string name="desc_node_filter_clear">清除筛选</string>
     <string name="node_filter_include_unknown">包括未知内容</string>
     <string name="node_filter_only_online">隐藏离线节点</string>
@@ -34,6 +35,7 @@
     <string name="node_sort_hops_away">跳数</string>
     <string name="node_sort_last_heard">上次连接时间</string>
     <string name="node_sort_via_mqtt">通过 MQTT</string>
+    <string name="via_mqtt">通过 MQTT</string>
     <string name="node_sort_via_favorite">通过收藏夹</string>
     <string name="unrecognized">无法识别的</string>
     <string name="message_status_enroute">正在等待确认</string>
@@ -64,7 +66,7 @@
     <string name="role_tak">优化ATAK系统通讯，减少常规广播。</string>
     <string name="role_client_hidden">仅在需要时广播的设备，用于隐蔽或节能模式</string>
     <string name="role_lost_and_found">定期向默认频道广播位置，以协助设备恢复。</string>
-    <string name="role_tak_tracker">启用自动TAKPLI广播并减少常规广播。</string>
+    <string name="role_tak_tracker">启用自动 TAK PLI 广播并减少常规广播。</string>
     <string name="role_router_late">基础设施节点，总是在所有其他模式之后重新广播数据包一次，以确保本地集群的额外覆盖范围。会在节点列表中显示。</string>
     <string name="rebroadcast_mode_all">重新广播任何观察到的消息，无论是来自我们的私有频道还是具有相同 LoRa 参数的其他网状网络。</string>
     <string name="rebroadcast_mode_all_skip_decoding">与 ALL 模式的行为相同，但跳过数据包解码，仅简单地重新广播它们。仅适用于中继器角色。在其他角色中设置此选项将表现为 ALL 模式。</string>
@@ -96,6 +98,7 @@
     <string name="url_for_join">加入 Meshtastic 网状网络的 URL</string>
     <string name="accept">接受</string>
     <string name="cancel">取消</string>
+    <string name="clear_changes">清除更改</string>
     <string name="change_channel">切换频道</string>
     <string name="are_you_sure_channel">您确定要更改频道吗？在您分享新的频道设定之前，与其他节点的所有通讯都将停止。</string>
     <string name="new_channel_rcvd">收到新的频道 URL</string>
@@ -104,7 +107,7 @@
     <string name="report_a_bug">报告 Bug 详细信息</string>
     <string name="report_bug_text">您确定要报告错误吗？报告后，请在 https://github.com/orgs/meshtastic/discussions 上贴文，以便我们可以将报告与您发现的问题匹配。</string>
     <string name="report">报告</string>
-    <string name="not_paired_yet">您还没有配对.</string>
+    <string name="not_paired_yet">您还没有配对。</string>
     <string name="change_radio">换设备</string>
     <string name="pairing_completed">配对完成，启动服务</string>
     <string name="pairing_failed_try_again">配对失败，请重新选择</string>
@@ -137,7 +140,21 @@
     <string name="text_messages">短信</string>
     <string name="channel_invalid">此频道网址无效，无法使用</string>
     <string name="debug_panel">调试面板</string>
+    <string name="debug_logs_export">导出程序日志</string>
     <string name="debug_last_messages">500条最新消息</string>
+    <string name="debug_filters">筛选器</string>
+    <string name="debug_active_filters">启用的过滤器</string>
+    <string name="debug_default_search">搜索日志…</string>
+    <string name="debug_search_next">下一匹配</string>
+    <string name="debug_search_prev">上一匹配</string>
+    <string name="debug_search_clear">清除搜索</string>
+    <string name="debug_filter_add">添加筛选条件</string>
+    <string name="debug_filter_included">筛选已包含</string>
+    <string name="debug_filter_clear">清除所有筛选条件</string>
+    <string name="debug_clear">清除日志</string>
+    <string name="match_any">匹配任意 | 所有</string>
+    <string name="match_all">匹配所有 | 任意</string>
+    <string name="debug_clear_logs_confirm">这将从您的设备中移除所有日志数据包和数据库条目 - 完整重置，永久失去所有内容。</string>
     <string name="clear">清除</string>
     <string name="updating_firmware">更新固件，请等待几分钟…</string>
     <string name="update_successful">更新成功</string>
@@ -145,12 +162,13 @@
     <string name="message_reception_time">消息接收时间</string>
     <string name="message_reception_state">消息接收状态</string>
     <string name="message_delivery_status">消息传递状态</string>
-    <string name="meshtastic_messages_notifications">消息通知</string>
+    <string name="meshtastic_messages_notifications">私信提醒</string>
+    <string name="meshtastic_broadcast_notifications">广播消息提醒</string>
     <string name="meshtastic_alerts_notifications">提醒通知</string>
     <string name="protocol_stress_test">协议压力测试</string>
     <string name="firmware_too_old">需要固件更新。</string>
     <string name="firmware_old">版本过旧，无法与此应用程序通讯。欲了解更多信息，请参阅 Meshtastic 网站上的<a href="https://meshtastic.org/docs/getting-started/flashing-firmware">韧体安装指南</a>。</string>
-    <string name="okay">好的</string>
+    <string name="okay">确定</string>
     <string name="must_set_region">您必须先选择一个地区</string>
     <string name="region">地区</string>
     <string name="cant_change_no_radio">无法更改频道，因为装置尚未连接。请再试一次。</string>
@@ -186,6 +204,8 @@
     <string name="delete_for_everyone">也从所有人的聊天纪录中删除</string>
     <string name="delete_for_me">仅在我的设备中删除</string>
     <string name="select_all">选择全部</string>
+    <string name="close_selection">关闭选中</string>
+    <string name="delete_selection">删除选中</string>
     <string name="modem_config_slow_long">长距离（慢速）</string>
     <string name="map_style_selection">主题选择</string>
     <string name="map_download_region">下载区域</string>
@@ -199,7 +219,7 @@
     <string name="shutdown">关机</string>
     <string name="cant_shutdown">此设备不支持关机</string>
     <string name="reboot">重启</string>
-    <string name="traceroute">追踪器</string>
+    <string name="traceroute">路由追踪</string>
     <string name="intro_show">显示简介</string>
     <string name="intro_welcome">欢迎来到Meshtastic</string>
     <string name="intro_welcome_text">Meshtastic 是一个开源、离网、加密的通讯平台。Meshtastic 无线电组成网状网络，使用 LoRa 协议传送文字讯息进行通讯。</string>
@@ -269,8 +289,11 @@ Meshtastic中文社区 meshcn.net</string>
     <string name="air_utilization">无线信道利用率</string>
     <string name="temperature">温度</string>
     <string name="humidity">湿度</string>
+    <string name="soil_temperature">土壤温度</string>
+    <string name="soil_moisture">土壤湿度</string>
     <string name="logs">日志</string>
     <string name="hops_away">跳数</string>
+    <string name="hops_away_template">越点数: %1$d</string>
     <string name="info">信息</string>
     <string name="ch_util_definition">当前信道的利用情况，包括格式正确的发送(TX）、接收（RX）以及无法解码的接收(即噪声）。</string>
     <string name="air_util_definition">过去一小时内用于传输的空中占用时间百分比。</string>
@@ -284,14 +307,15 @@ Meshtastic中文社区 meshcn.net</string>
     <string name="exchange_userinfo">交换用户信息</string>
     <string name="meshtastic_new_nodes_notifications">新节点通知</string>
     <string name="more_details">查看更多</string>
-    <string name="snr">SNR（信噪比）</string>
+    <string name="snr">SNR</string>
     <string name="snr_definition">信噪比（Signal-to-Noise Ratio, SNR）是一种用于通信领域的测量指标，用于量化目标信号与背景噪声的比例。在 Meshtastic 及其他无线系统中，较高的信噪比表示信号更加清晰，从而能够提升数据传输的可靠性和质量。</string>
-    <string name="rssi">RSSI（接收信号强度指示）</string>
+    <string name="rssi">RSSI</string>
     <string name="rssi_definition">接收信号强度指示（Received Signal Strength Indicator, RSSI）是一种用于测量天线接收到的信号功率的指标。较高的 RSSI 值通常表示更强、更稳定的连接。</string>
     <string name="iaq_definition">室内空气质量（Indoor Air Quality, IAQ）：由 Bosch BME680 传感器测量的相对标尺 IAQ 值，取值范围为 0–500。</string>
     <string name="device_metrics_log">设备测量日志</string>
     <string name="node_map">节点地图</string>
     <string name="position_log">定位日志</string>
+    <string name="last_position_update">最后位置更新</string>
     <string name="env_metrics_log">环境测量日志</string>
     <string name="sig_metrics_log">信号测量日志</string>
     <string name="administration">管理</string>
@@ -304,7 +328,7 @@ Meshtastic中文社区 meshcn.net</string>
     <string name="share_message">分享消息</string>
     <string name="signal">信号</string>
     <string name="signal_quality">信号质量</string>
-    <string name="traceroute_log">路由追踪</string>
+    <string name="traceroute_log">路由追踪日志</string>
     <string name="traceroute_direct">直连</string>
     <plurals name="traceroute_hops">
         <item quantity="other">%d 跳数</item>
@@ -336,14 +360,14 @@ Meshtastic中文社区 meshcn.net</string>
     <string name="are_you_sure">你确定吗？</string>
     <string name="router_role_confirmation_text"><![CDATA[我已经阅读 <a href="https://meshtastic.org/docs/configuration/radio/device/#roles">设备角色文档</a> 以及关于 <a href="http://meshtastic.org/blog/choosing-the-right-device-role">选择正确设备角色</a>的博客文章。]]></string>
     <string name="i_know_what_i_m_doing">我知道自己在做什么</string>
-    <string name="low_battery_message">节点 %s 电池电量低(%d%%)</string>
+    <string name="low_battery_message">节点 %1$s 电量低(%2$d%%)</string>
     <string name="meshtastic_low_battery_notifications">低电量通知</string>
     <string name="low_battery_title">电池电量低: %s</string>
     <string name="meshtastic_low_battery_temporary_remote_notifications">低电量通知 (收藏节点)</string>
     <string name="baro_pressure">气压</string>
     <string name="mesh_via_udp_enabled">通过 UDP 的Mesh</string>
     <string name="udp_config">UDP 设置</string>
-    <string name="map_node_popup_details"><![CDATA[%s<br>最后听到: %s<br>最后位置: %s<br>电量: %s]]></string>
+    <string name="map_node_popup_details"><![CDATA[%1$s<br>最后听到: %2$s<br>最后位置: %3$s<br>电量: %4$s]]></string>
     <string name="toggle_my_position">切换我的位置</string>
     <string name="user">用户</string>
     <string name="channels">频道</string>
@@ -535,7 +559,7 @@ Meshtastic中文社区 meshcn.net</string>
     <string name="range_test_config">范围测试设置</string>
     <string name="range_test_enabled">启用范围测试</string>
     <string name="sender_message_interval_seconds">发件人消息间隔(秒)</string>
-    <string name="save_csv_in_storage_esp32_only">保存 CSV 于存储 (仅ESP32 )</string>
+    <string name="save_csv_in_storage_esp32_only">保存 CSV 到存储 (仅ESP32)</string>
     <string name="remote_hardware_config">远程硬件设置</string>
     <string name="remote_hardware_enabled">启用远程硬件</string>
     <string name="allow_undefined_pin_access">允许未定义的引脚访问</string>
@@ -569,6 +593,7 @@ Meshtastic中文社区 meshcn.net</string>
     <string name="environment_metrics_use_fahrenheit">环境测量值使用华氏度</string>
     <string name="air_quality_metrics_module_enabled">启用空气质量计量模块</string>
     <string name="air_quality_metrics_update_interval_seconds">空气质量计量更新间隔 (秒)</string>
+    <string name="air_quality_icon">空气质量图标</string>
     <string name="power_metrics_module_enabled">启用电源计量模块</string>
     <string name="power_metrics_update_interval_seconds">电量计更新间隔 (秒)</string>
     <string name="power_metrics_on_screen_enabled">在屏幕上启用电源指标</string>
@@ -656,4 +681,39 @@ Meshtastic中文社区 meshcn.net</string>
     <string name="show_waypoints">显示航点</string>
     <string name="show_precision_circle">显示精度圈</string>
     <string name="client_notification">客户端通知</string>
+    <string name="compromised_keys">检测到密钥泄漏，请点击 确定 进行重新生成。</string>
+    <string name="regenerate_private_key">重新生成私钥</string>
+    <string name="regenerate_keys_confirmation">您确定要重新生成您的私钥吗？\n\n曾与此节点交换过密钥的节点将需要删除该节点并重新交换密钥以恢复安全通信。</string>
+    <string name="export_keys">导出密钥</string>
+    <string name="export_keys_confirmation">导出公钥和私钥到文件。请安全地存储某处。</string>
+    <string name="modules_unlocked">模块已解锁</string>
+    <string name="remote">远程</string>
+    <string name="node_count_template">(%1$d 在线 / %2$d 总计)</string>
+    <string name="react">互动</string>
+    <string name="disconnect">断开连接</string>
+    <string name="no_ble_devices">未找到蓝牙设备。</string>
+    <string name="no_network_devices">未找到网络设备。</string>
+    <string name="no_usb_devices">未找到 USB 串口设备。</string>
+    <string name="scroll_to_bottom">滚动到底部</string>
+    <string name="meshtastic">Meshtastic</string>
+    <string name="scanning">正在扫描</string>
+    <string name="app_intro_back_button">后退</string>
+    <string name="app_intro_next_button">下一步</string>
+    <string name="app_intro_done_button">完成</string>
+    <string name="app_intro_skip_button">跳过</string>
+    <string name="security_icon_description">安全状态</string>
+    <string name="security_icon_insecure_precise"> - 警告，不安全位置</string>
+    <string name="unknown_channel">未知频道</string>
+    <string name="warning">警告</string>
+    <string name="overflow_menu">溢出菜单</string>
+    <string name="uv_lux">紫外线强度</string>
+    <string name="unknown">未知</string>
+    <string name="map_type_satellite">卫星</string>
+    <string name="map_type_hybrid">混合</string>
+    <!-- INSECURE_NO_PRECISE State (Yellow Open Lock) -->
+    <!-- INSECURE_PRECISE_ONLY State (Red Open Lock) -->
+    <!-- INSECURE_PRECISE_MQTT_WARNING State (Red Open Lock with Warning Badge) -->
+    <!-- Security Help Dialog Titles and Buttons (from your existing code structure) -->
+    <string name="security_icon_help_dismiss">收起键盘</string>
+    <string name="message_input_label">信息</string>
 </resources>

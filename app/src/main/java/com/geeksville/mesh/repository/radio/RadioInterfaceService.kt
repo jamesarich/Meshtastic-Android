@@ -22,6 +22,7 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.coroutineScope
+import com.geeksville.mesh.BuildConfig
 import com.geeksville.mesh.CoroutineDispatchers
 import com.geeksville.mesh.MeshProtos
 import com.geeksville.mesh.android.BinaryLogFile
@@ -140,7 +141,15 @@ class RadioInterfaceService @Inject constructor(
     }
 
     fun isMockInterface(): Boolean {
-        return BuildUtils.isEmulator || (context as GeeksvilleApplication).isInTestLab
+        return BuildConfig.DEBUG || (context as GeeksvilleApplication).isInTestLab
+    }
+
+    /**
+     * Determines whether to default to mock interface for device address.
+     * This keeps the decision logic separate and easy to extend.
+     */
+    private fun shouldDefaultToMockInterface(): Boolean {
+        return BuildUtils.isEmulator
     }
 
     /** Return the device we are configured to use, or null for none
@@ -156,7 +165,7 @@ class RadioInterfaceService @Inject constructor(
         var address = prefs.getString(DEVADDR_KEY, null)
 
         // If we are running on the emulator we default to the mock interface, so we can have some data to show to the user
-        if (address == null && isMockInterface()) {
+        if (address == null && shouldDefaultToMockInterface()) {
             address = mockInterfaceAddress
         }
 
