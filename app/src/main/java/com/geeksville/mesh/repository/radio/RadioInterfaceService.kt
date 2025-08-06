@@ -224,11 +224,15 @@ constructor(
         }
     }
 
-    private fun broadcastConnectionChanged(isConnected: Boolean, isPermanent: Boolean) {
-        debug("Broadcasting connection=$isConnected")
+    private fun broadcastConnectionChanged(
+        isConnected: Boolean,
+        isConnecting: Boolean,
+        isPermanent: Boolean
+    ) {
+        debug("Broadcasting connection=$isConnected, connecting=$isConnecting")
 
         processLifecycle.coroutineScope.launch(dispatchers.default) {
-            _connectionState.emit(RadioServiceConnectionState(isConnected, isPermanent))
+            _connectionState.emit(RadioServiceConnectionState(isConnected, isConnecting, isPermanent))
         }
     }
 
@@ -253,18 +257,26 @@ constructor(
         processLifecycle.coroutineScope.launch(dispatchers.io) { _receivedData.emit(p) }
     }
 
+    fun onConnecting() {
+        broadcastConnectionChanged(isConnected = false, isConnecting = true, isPermanent = false)
+    }
+
     fun onConnect() {
         if (!isConnected) {
             stopReconnectLoop("Connection established")
             isConnected = true
-            broadcastConnectionChanged(isConnected = true, isPermanent = false)
+            broadcastConnectionChanged(isConnected = true, isConnecting = false, isPermanent = false)
         }
     }
 
     fun onDisconnect(isPermanent: Boolean) {
         if (isConnected) {
             isConnected = false
-            broadcastConnectionChanged(isConnected = false, isPermanent = isPermanent)
+            broadcastConnectionChanged(
+                isConnected = false,
+                isConnecting = false,
+                isPermanent = isPermanent
+            )
 
             // For temporary disconnects (e.g., out of Bluetooth range), start trying to reconnect.
             // This applies only if we have a bonded device.
@@ -289,6 +301,7 @@ constructor(
             } else {
                 info("Starting radio ${address.anonymize}")
                 isStarted = true
+                onConnecting()
 
                 if (logSends) {
                     sentPacketsLog = BinaryLogFile(context, "sent_log.pb")

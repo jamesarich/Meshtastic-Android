@@ -201,6 +201,7 @@ class MeshService :
 
     enum class ConnectionState {
         DISCONNECTED,
+        CONNECTING,
         CONNECTED,
         DEVICE_SLEEP, // device is in LS sleep state, it will reconnected to us over bluetooth once it has data
         ;
@@ -242,7 +243,7 @@ class MeshService :
         get() =
             when (connectionState) {
                 ConnectionState.CONNECTED -> getString(R.string.connected_count).format(numOnlineNodes)
-
+                ConnectionState.CONNECTING -> getString(R.string.connecting)
                 ConnectionState.DISCONNECTED -> getString(R.string.disconnected)
                 ConnectionState.DEVICE_SLEEP -> getString(R.string.device_sleeping)
             }
@@ -1399,6 +1400,7 @@ class MeshService :
         connectionState = c
         when (c) {
             ConnectionState.CONNECTED -> startConnect()
+            ConnectionState.CONNECTING -> {} // Noop
             ConnectionState.DEVICE_SLEEP -> startDeviceSleep()
             ConnectionState.DISCONNECTED -> startDisconnect()
         }
@@ -1434,10 +1436,12 @@ class MeshService :
         val isRouter = localConfig.device.role == ConfigProtos.Config.DeviceConfig.Role.ROUTER
         val lsEnabled = localConfig.power.isPowerSaving || isRouter
         val connected = state.isConnected
+        val connecting = state.isConnecting
         val permanent = state.isPermanent || !lsEnabled
         onConnectionChanged(
             when {
                 connected -> ConnectionState.CONNECTED
+                connecting -> ConnectionState.CONNECTING
                 permanent -> ConnectionState.DISCONNECTED
                 else -> ConnectionState.DEVICE_SLEEP
             },

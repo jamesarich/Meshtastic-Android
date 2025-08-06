@@ -536,12 +536,14 @@ private fun MainMenuActions(isManaged: Boolean, onAction: (MainMenuAction) -> Un
 @Composable
 private fun MeshService.ConnectionState.getConnectionColor(): Color = when (this) {
     MeshService.ConnectionState.CONNECTED -> colorScheme.StatusGreen
+    MeshService.ConnectionState.CONNECTING -> colorScheme.StatusYellow
     MeshService.ConnectionState.DEVICE_SLEEP -> colorScheme.StatusYellow
     MeshService.ConnectionState.DISCONNECTED -> colorScheme.StatusRed
 }
 
 private fun MeshService.ConnectionState.getConnectionIcon(): ImageVector = when (this) {
     MeshService.ConnectionState.CONNECTED -> Icons.TwoTone.CloudDone
+    MeshService.ConnectionState.CONNECTING -> Icons.TwoTone.CloudUpload
     MeshService.ConnectionState.DEVICE_SLEEP -> Icons.TwoTone.CloudUpload
     MeshService.ConnectionState.DISCONNECTED -> Icons.TwoTone.CloudOff
 }
@@ -549,6 +551,7 @@ private fun MeshService.ConnectionState.getConnectionIcon(): ImageVector = when 
 @Composable
 private fun MeshService.ConnectionState.getTooltipString(): String = when (this) {
     MeshService.ConnectionState.CONNECTED -> stringResource(R.string.connected)
+    MeshService.ConnectionState.CONNECTING -> stringResource(R.string.connecting)
     MeshService.ConnectionState.DEVICE_SLEEP -> stringResource(R.string.device_sleeping)
     MeshService.ConnectionState.DISCONNECTED -> stringResource(R.string.disconnected)
 }

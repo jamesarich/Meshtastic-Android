@@ -212,7 +212,7 @@ fun ConnectionsScreen(
             MeshService.ConnectionState.CONNECTED -> {
                 if (regionUnset) R.string.must_set_region else R.string.connected_to
             }
-
+            MeshService.ConnectionState.CONNECTING -> R.string.connecting
             MeshService.ConnectionState.DISCONNECTED -> R.string.not_connected
             MeshService.ConnectionState.DEVICE_SLEEP -> R.string.connected_sleeping
         }.let {

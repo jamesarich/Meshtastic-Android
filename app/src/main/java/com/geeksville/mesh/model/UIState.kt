@@ -738,9 +738,9 @@ constructor(
     val connectionState
         get() = radioConfigRepository.connectionState
 
-    fun isConnected() = connectionState.value != MeshService.ConnectionState.DISCONNECTED
+    fun isConnected() = connectionState.value == MeshService.ConnectionState.CONNECTED
 
-    val isConnected = radioConfigRepository.connectionState.map { it != MeshService.ConnectionState.DISCONNECTED }
+    val isConnected = radioConfigRepository.connectionState.map { it == MeshService.ConnectionState.CONNECTED }
 
     private val _requestChannelSet = MutableStateFlow<AppOnlyProtos.ChannelSet?>(null)
     val requestChannelSet: StateFlow<AppOnlyProtos.ChannelSet?>

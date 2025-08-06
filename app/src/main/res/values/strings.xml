@@ -116,6 +116,7 @@
     <string name="share">Share</string>
     <string name="new_node_seen">New Node Seen: %s</string>
     <string name="disconnected">Disconnected</string>
+    <string name="connecting">Connecting</string>
     <string name="device_sleeping">Device sleeping</string>
     <string name="connected_count">Connected: %1$s online</string>
     <string name="ip_address">IP Address:</string>
