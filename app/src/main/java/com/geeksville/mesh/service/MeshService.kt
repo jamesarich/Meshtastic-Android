@@ -67,13 +67,13 @@ import com.geeksville.mesh.database.MeshLogRepository
 import com.geeksville.mesh.database.PacketRepository
 import com.geeksville.mesh.database.entity.MeshLog
 import com.geeksville.mesh.database.entity.MyNodeEntity
-import com.geeksville.mesh.database.entity.NodeEntity
 import com.geeksville.mesh.database.entity.Packet
 import com.geeksville.mesh.database.entity.ReactionEntity
 import com.geeksville.mesh.fromRadio
 import com.geeksville.mesh.model.DeviceVersion
 import com.geeksville.mesh.model.NO_DEVICE_SELECTED
 import com.geeksville.mesh.model.Node
+import com.geeksville.mesh.model.NodeEntity
 import com.geeksville.mesh.model.getTracerouteResponse
 import com.geeksville.mesh.position
 import com.geeksville.mesh.repository.datastore.RadioConfigRepository
@@ -224,7 +224,7 @@ class MeshService :
 
     private fun getSenderName(packet: DataPacket?): String {
         val nodeId = packet?.from ?: return getString(R.string.unknown_username)
-        return nodeDBbyID[nodeId]?.user?.longName ?: getString(R.string.unknown_username)
+        return radioConfigRepository.nodeDBbyID.value[nodeId]?.user?.longName ?: getString(R.string.unknown_username)
     }
 
     private val notificationSummary: String
@@ -358,6 +358,12 @@ class MeshService :
             .launchIn(serviceScope)
 
         radioInterfaceService.receivedData.onEach(::onReceiveFromRadio).launchIn(serviceScope)
+        radioConfigRepository.nodeDBbyNum
+            .onEach {
+                nodeDB = it
+                onNodeDBChanged()
+            }
+            .launchIn(serviceScope)
         radioConfigRepository.localConfigFlow.onEach { localConfig = it }.launchIn(serviceScope)
         radioConfigRepository.moduleConfigFlow.onEach { moduleConfig = it }.launchIn(serviceScope)
         radioConfigRepository.channelSetFlow.onEach { channelSet = it }.launchIn(serviceScope)
@@ -416,25 +422,17 @@ class MeshService :
     }
 
     // Node Database and Model Management
-    private fun loadSettings() = serviceScope.handledLaunch {
-        resetState() // Clear previous state
-        myNodeInfo = radioConfigRepository.myNodeInfo.value
-        val nodesFromDb = radioConfigRepository.getNodeDBbyNum()
-        nodeDBbyNodeNum.putAll(nodesFromDb)
-        nodesFromDb.values.forEach { nodeEntity ->
-            if (nodeEntity.user.id.isNotEmpty()) {
-                _nodeDBbyID[nodeEntity.user.id] = nodeEntity
-            }
+    private fun loadSettings() {
+        serviceScope.handledLaunch {
+            myNodeInfo = radioConfigRepository.myNodeInfo.value
         }
     }
 
     private fun resetState() = serviceScope.launch {
         debug("Discarding NodeDB")
-        clearDatabases()
         myNodeInfo = null
         rawMyNodeInfo = null
-        nodeDBbyNodeNum.clear()
-        _nodeDBbyID.clear()
+        radioConfigRepository.clearNodeDB()
         radioConfigRepository.clearChannelSet()
         radioConfigRepository.clearLocalConfig()
         radioConfigRepository.clearLocalModuleConfig()
@@ -450,63 +448,42 @@ class MeshService :
     private var moduleConfig: LocalModuleConfig = LocalModuleConfig.getDefaultInstance()
     private var channelSet: AppOnlyProtos.ChannelSet = AppOnlyProtos.ChannelSet.getDefaultInstance()
 
-    private val nodeDBbyNodeNum = ConcurrentHashMap<Int, NodeEntity>()
-    private val _nodeDBbyID = ConcurrentHashMap<String, NodeEntity>() // Cached map for ID lookups
-    val nodeDBbyID: Map<String, NodeEntity>
-        get() = _nodeDBbyID // Expose immutable view if needed externally
 
-    private fun toNodeInfo(nodeNum: Int): NodeEntity =
-        nodeDBbyNodeNum[nodeNum] ?: throw NodeNumNotFoundException(nodeNum)
+    private var nodeDB = mapOf<Int, Node>()
+
+    private fun toNodeInfo(nodeNum: Int): Node =
+        nodeDB[nodeNum] ?: throw NodeNumNotFoundException(nodeNum)
 
     private fun toNodeID(nodeNum: Int): String = when (nodeNum) {
         DataPacket.NODENUM_BROADCAST -> DataPacket.ID_BROADCAST
-        else -> nodeDBbyNodeNum[nodeNum]?.user?.id ?: DataPacket.nodeNumToDefaultId(nodeNum)
-    }
-
-    private fun getOrCreateNodeInfo(nodeNum: Int, channel: Int = 0): NodeEntity = nodeDBbyNodeNum.getOrPut(nodeNum) {
-        val userId = DataPacket.nodeNumToDefaultId(nodeNum)
-        val defaultUser = user {
-            id = userId
-            longName = "Meshtastic ${userId.takeLast(4)}"
-            shortName = userId.takeLast(4)
-            hwModel = MeshProtos.HardwareModel.UNSET
-        }
-        NodeEntity(
-            num = nodeNum,
-            user = defaultUser,
-            longName = defaultUser.longName,
-            channel = channel,
-        ).also { newEntity ->
-            if (newEntity.user.id.isNotEmpty()) {
-                _nodeDBbyID[newEntity.user.id] = newEntity
-            }
-        }
+        else -> nodeDB[nodeNum]?.user?.id ?: DataPacket.nodeNumToDefaultId(nodeNum)
     }
 
     private val hexIdRegex = """\!([0-9A-Fa-f]+)""".toRegex()
 
-    private fun toNodeInfo(id: String): NodeEntity = _nodeDBbyID[id]
-        ?: run {
-            val hexStr = hexIdRegex.matchEntire(id)?.groups?.get(1)?.value
-            when {
-                id == DataPacket.ID_LOCAL -> toNodeInfo(myNodeNum)
-                hexStr != null -> {
-                    val nodeNum = hexStr.toLong(16).toInt()
-                    nodeDBbyNodeNum[nodeNum] ?: throw IdNotFoundException(id)
-                }
+    private fun toNodeInfo(id: String): Node =
+        radioConfigRepository.nodeDBbyID.value[id]
+            ?: run {
+                val hexStr = hexIdRegex.matchEntire(id)?.groups?.get(1)?.value
+                when {
+                    id == DataPacket.ID_LOCAL -> toNodeInfo(myNodeNum)
+                    hexStr != null -> {
+                        val nodeNum = hexStr.toLong(16).toInt()
+                        nodeDB[nodeNum] ?: throw IdNotFoundException(id)
+                    }
 
-                else -> throw InvalidNodeIdException(id)
+                    else -> throw InvalidNodeIdException(id)
+                }
             }
-        }
 
     private fun getUserName(num: Int): String =
         radioConfigRepository.getUser(num).let { "${it.longName} (${it.shortName})" }
 
     private val numNodes: Int
-        get() = nodeDBbyNodeNum.size
+        get() = nodeDB.size
 
     private val numOnlineNodes: Int
-        get() = nodeDBbyNodeNum.values.count { it.isOnline }
+        get() = nodeDB.values.count { it.isOnline }
 
     private fun toNodeNum(id: String): Int = when (id) {
         DataPacket.ID_BROADCAST -> DataPacket.NODENUM_BROADCAST
@@ -520,25 +497,14 @@ class MeshService :
         channel: Int = 0,
         crossinline updateFn: (NodeEntity) -> Unit,
     ) {
-        val info = getOrCreateNodeInfo(nodeNum, channel)
-        val oldUserId = info.user.id
-
-        updateFn(info)
-
-        val newUserId = info.user.id
-        if (oldUserId.isNotEmpty() && oldUserId != newUserId) {
-            _nodeDBbyID.remove(oldUserId)
-        }
-        if (newUserId.isNotEmpty()) {
-            _nodeDBbyID[newUserId] = info
-        }
-
-        if (info.user.id.isNotEmpty()) {
-            serviceScope.handledLaunch { radioConfigRepository.upsert(info) }
+        serviceScope.handledLaunch {
+            radioConfigRepository.updateNode(nodeNum, channel) { nodeEntity ->
+                updateFn(nodeEntity)
+            }
         }
 
         if (withBroadcast) {
-            serviceBroadcasts.broadcastNodeChange(info.toNodeInfo())
+            nodeDB[nodeNum]?.let { serviceBroadcasts.broadcastNodeChange(it.toEntity().toNodeInfo()) }
         }
     }
 
@@ -555,7 +521,7 @@ class MeshService :
         get() =
             when {
                 myNodeNum == to -> 0 // Admin channel to self is 0
-                nodeDBbyNodeNum[myNodeNum]?.hasPKC == true && nodeDBbyNodeNum[to]?.hasPKC == true ->
+                nodeDB[myNodeNum]?.hasPKC == true && nodeDB[to]?.hasPKC == true ->
                     DataPacket.PKC_CHANNEL_INDEX
 
                 else ->
@@ -586,7 +552,7 @@ class MeshService :
         this.decoded = MeshProtos.Data.newBuilder().apply(initFn).build()
         if (channel == DataPacket.PKC_CHANNEL_INDEX) {
             pkiEncrypted = true
-            nodeDBbyNodeNum[to]?.user?.publicKey?.let { this.publicKey = it }
+            nodeDB[to]?.user?.publicKey?.let { this.publicKey = it }
         } else {
             this.channel = channel
         }
@@ -1684,7 +1650,7 @@ class MeshService :
 
                 sendToRadio(
                     newMeshPacketTo(targetNodeNum).buildMeshPacket(
-                        channel = if (destNum == null) 0 else (nodeDBbyNodeNum[destNum]?.channel ?: 0),
+                        channel = if (destNum == null) 0 else (nodeDB[destNum]?.channel ?: 0),
                         priority = MeshPacket.Priority.BACKGROUND,
                     ) {
                         portnumValue = Portnums.PortNum.POSITION_APP_VALUE
@@ -1795,11 +1761,6 @@ class MeshService :
         get() = _lastAddress.asStateFlow()
 
     lateinit var sharedPreferences: SharedPreferences
-
-    fun clearDatabases() = serviceScope.handledLaunch {
-        debug("Clearing nodeDB")
-        radioConfigRepository.clearNodeDB()
-    }
 
     private fun updateLastAddress(deviceAddr: String?) {
         val currentAddr = lastAddress.value
@@ -1984,7 +1945,7 @@ class MeshService :
             override fun getChannelSet(): ByteArray = toRemoteExceptions { this@MeshService.channelSet.toByteArray() }
 
             override fun getNodes(): MutableList<NodeInfo> = toRemoteExceptions {
-                nodeDBbyNodeNum.values.map { it.toNodeInfo() }.toMutableList()
+                nodeDB.values.map { it.toEntity().toNodeInfo() }.toMutableList()
             }
 
             override fun connectionState(): String = toRemoteExceptions {
@@ -1999,10 +1960,8 @@ class MeshService :
             override fun stopProvideLocation() = toRemoteExceptions { stopLocationRequests() }
 
             override fun removeByNodenum(requestId: Int, nodeNum: Int) = toRemoteExceptions {
-                nodeDBbyNodeNum.remove(nodeNum)?.let { removedNode ->
-                    if (removedNode.user.id.isNotEmpty()) {
-                        _nodeDBbyID.remove(removedNode.user.id)
-                    }
+                serviceScope.handledLaunch {
+                    radioConfigRepository.deleteNode(nodeNum)
                 }
                 sendToRadio(newMeshPacketTo(myNodeNum).buildAdminPacket { this.removeByNodenum = nodeNum })
             }
@@ -2010,10 +1969,10 @@ class MeshService :
             override fun requestUserInfo(destNum: Int) = toRemoteExceptions {
                 if (destNum != myNodeNum) {
                     sendToRadio(
-                        newMeshPacketTo(destNum).buildMeshPacket(channel = nodeDBbyNodeNum[destNum]?.channel ?: 0) {
+                        newMeshPacketTo(destNum).buildMeshPacket(channel = nodeDB[destNum]?.channel ?: 0) {
                             portnumValue = Portnums.PortNum.NODEINFO_APP_VALUE
                             wantResponse = true
-                            payload = nodeDBbyNodeNum[myNodeNum]?.user?.toByteString() ?: ByteString.EMPTY
+                            payload = nodeDB[myNodeNum]?.user?.toByteString() ?: ByteString.EMPTY
                         },
                     )
                 }
@@ -2026,7 +1985,7 @@ class MeshService :
                 val currentPosition =
                     when {
                         provideLocation && position.isValid() -> position
-                        else -> nodeDBbyNodeNum[myNodeNum]?.position?.let { Position(it) }?.takeIf { it.isValid() }
+                        else -> nodeDB[myNodeNum]?.position?.let { Position(it) }?.takeIf { it.isValid() }
                     }
 
                 if (currentPosition == null) {
@@ -2076,7 +2035,7 @@ class MeshService :
                     newMeshPacketTo(destNum).buildMeshPacket(
                         wantAck = true,
                         id = requestId,
-                        channel = nodeDBbyNodeNum[destNum]?.channel ?: 0,
+                        channel = nodeDB[destNum]?.channel ?: 0,
                     ) {
                         portnumValue = Portnums.PortNum.TRACEROUTE_APP_VALUE
                         wantResponse = true

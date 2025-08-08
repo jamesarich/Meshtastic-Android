@@ -160,6 +160,26 @@ data class Node(
             environmentMetrics.getDisplayString(isFahrenheit),
         ).joinToString(" ")
     }
+
+    fun toEntity(): NodeEntity =
+        NodeEntity(
+            num = num,
+            user = user,
+            position = position,
+            snr = snr,
+            rssi = rssi,
+            lastHeard = lastHeard,
+            deviceMetrics = deviceMetrics,
+            channel = channel,
+            viaMqtt = viaMqtt,
+            hopsAway = hopsAway,
+            isFavorite = isFavorite,
+            isIgnored = isIgnored,
+            environmentMetrics = environmentMetrics,
+            powerMetrics = powerMetrics,
+            paxcounter = paxcounter,
+            publicKey = publicKey,
+        )
 }
 
 fun ConfigProtos.Config.DeviceConfig.Role?.isUnmessageableRole(): Boolean = this in listOf(

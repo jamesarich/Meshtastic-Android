@@ -37,8 +37,11 @@ import com.geeksville.mesh.deviceProfile
 import com.geeksville.mesh.model.Node
 import com.geeksville.mesh.model.getChannelUrl
 import com.geeksville.mesh.service.ConnectionState
+import com.geeksville.mesh.DataPacket
+import com.geeksville.mesh.MeshProtos
 import com.geeksville.mesh.service.ServiceAction
 import com.geeksville.mesh.service.ServiceRepository
+import com.geeksville.mesh.user
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
@@ -81,11 +84,37 @@ constructor(
     val nodeDBbyNum: StateFlow<Map<Int, Node>>
         get() = nodeDB.nodeDBbyNum
 
+    /** Flow representing the [Node] database, indexed by nodeId. */
+    val nodeDBbyID: StateFlow<Map<String, Node>>
+        get() = nodeDB.nodeDBbyID
+
     fun getUser(nodeNum: Int) = nodeDB.getUser(nodeNum)
 
     suspend fun getNodeDBbyNum() = nodeDB.getNodeDBbyNum().first()
 
     suspend fun upsert(node: NodeEntity) = nodeDB.upsert(node)
+
+    suspend fun updateNode(nodeNum: Int, channel: Int = 0, update: (NodeEntity) -> Unit) {
+        val node =
+            nodeDBbyNum.value[nodeNum]?.toEntity()
+                ?: run {
+                    val userId = DataPacket.nodeNumToDefaultId(nodeNum)
+                    val defaultUser = user {
+                        id = userId
+                        longName = "Meshtastic ${userId.takeLast(4)}"
+                        shortName = userId.takeLast(4)
+                        hwModel = MeshProtos.HardwareModel.UNSET
+                    }
+                    NodeEntity(
+                        num = nodeNum,
+                        user = defaultUser,
+                        longName = defaultUser.longName,
+                        channel = channel,
+                    )
+                }
+        update(node)
+        nodeDB.upsert(node)
+    }
 
     suspend fun installMyNodeInfo(mi: MyNodeEntity) {
         nodeDB.installMyNodeInfo(mi)
@@ -97,6 +126,10 @@ constructor(
 
     suspend fun clearNodeDB() {
         nodeDB.clearNodeDB()
+    }
+
+    suspend fun deleteNode(nodeNum: Int) {
+        nodeDB.deleteNode(nodeNum)
     }
 
     /** Flow representing the [ChannelSet] data store. */

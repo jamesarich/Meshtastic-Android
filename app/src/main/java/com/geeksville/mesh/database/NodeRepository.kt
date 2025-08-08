@@ -85,6 +85,13 @@ constructor(
             .conflate()
             .stateIn(processLifecycle.coroutineScope, SharingStarted.Eagerly, emptyMap())
 
+    val nodeDBbyID: StateFlow<Map<String, Node>> =
+        nodeDBbyNum
+            .mapLatest { map -> map.values.filter { it.user.id.isNotEmpty() }.associateBy { it.user.id } }
+            .flowOn(dispatchers.io)
+            .conflate()
+            .stateIn(processLifecycle.coroutineScope, SharingStarted.Eagerly, emptyMap())
+
     fun getNode(userId: String): Node = nodeDBbyNum.value.values.find { it.user.id == userId }
         ?: Node(num = DataPacket.idToDefaultNodeNum(userId) ?: 0, user = getUser(userId))
 
