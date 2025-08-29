@@ -1,0 +1,9 @@
+Meshtastic: Smooth moves
+🔗 Improved Connections: More reliable and refined.
+💬 Smarter Messaging: Unread counts fixed, new scroll-to-bottom button.
+🔍 Enhanced Search & Filters: Smarter search, new filter toggles.
+✨ UI/UX Improvements: Smoother interface, better waypoint handling.
+🐞 Bug Fixes: Crashes squashed, increased stability.
+⚡ Performance Boost: Optimized scrolling and responsiveness.
+
+https://github.com/meshtastic/Meshtastic-Android/releases/tag/2.6.30
