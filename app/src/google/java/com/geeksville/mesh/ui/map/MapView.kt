@@ -270,12 +270,17 @@ fun MapView(
     }
 
     // Clean up location tracking on disposal
-    DisposableEffect(Unit) { onDispose { fusedLocationClient.removeLocationUpdates(locationCallback) } }
+    DisposableEffect(Unit) {
+        onDispose {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+            mapViewModel.clearLoadedLayerData()
+        }
+    }
 
     val allNodes by
-        mapViewModel.nodes
-            .map { nodes -> nodes.filter { node -> node.validPosition != null } }
-            .collectAsStateWithLifecycle(listOf())
+    mapViewModel.nodes
+        .map { nodes -> nodes.filter { node -> node.validPosition != null } }
+        .collectAsStateWithLifecycle(listOf())
     val waypoints by mapViewModel.waypoints.collectAsStateWithLifecycle(emptyMap())
     val displayableWaypoints = waypoints.values.mapNotNull { it.data.waypoint }
 
