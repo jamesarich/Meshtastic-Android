@@ -153,7 +153,7 @@ data class NodeEntity(
 
         fun degI(d: Double) = (d * 1e7).toInt()
 
-        val ERROR_BYTE_STRING: ByteString = ByteString.copyFrom(ByteArray(32) { 0 })
+        val ERROR_BYTE_STRING: ByteString = ByteString.copyFrom(ByteArray(32))
 
         fun currentTime() = (System.currentTimeMillis() / 1000).toInt()
     }

@@ -337,7 +337,7 @@ private fun NodeDetailContent(
 }
 
 @Composable
-private fun notesSection(node: Node, onSaveNotes: (Int, String) -> Unit) {
+private fun NotesSection(node: Node, onSaveNotes: (Int, String) -> Unit) {
     if (node.isFavorite) {
         TitledCard(title = stringResource(R.string.notes)) {
             val originalNotes = node.notes
@@ -397,7 +397,7 @@ private fun NodeDetailList(
         TitledCard(title = stringResource(R.string.details)) {
             NodeDetailsContent(node, ourNode, metricsState.displayUnits)
         }
-        notesSection(node = node, onSaveNotes = onSaveNotes)
+        NotesSection(node = node, onSaveNotes = onSaveNotes)
 
         DeviceActions(
             isLocal = metricsState.isLocal,
@@ -1062,7 +1062,7 @@ private fun PowerMetrics(node: Node) {
 
 @Composable
 fun NodeActionButton(
-    modifier: Modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).height(48.dp),
+    modifier: Modifier = Modifier,
     title: String,
     enabled: Boolean,
     icon: ImageVector? = null,

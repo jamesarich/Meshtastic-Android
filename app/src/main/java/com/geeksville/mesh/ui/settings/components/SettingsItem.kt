@@ -58,7 +58,7 @@ fun SettingsItem(
         enabled = enabled,
         leadingIcon = leadingIcon,
         leadingIconTint = leadingIconTint,
-        trailingContent = { trailingIcon.Icon(trailingIconTint) },
+        trailingContent = { trailingIcon.icon(trailingIconTint) },
         onClick = onClick,
     )
 }
@@ -76,7 +76,7 @@ fun SettingsItem(
 ) {
     ClickableWrapper(enabled = enabled, onClick = onClick) {
         Content(
-            leading = { leadingIcon.Icon(leadingIconTint) },
+            leading = { leadingIcon.icon(leadingIconTint) },
             text = text,
             textColor = textColor,
             trailing = trailingContent,
@@ -97,7 +97,7 @@ fun SettingsItemSwitch(
 ) {
     ClickableWrapper(enabled = enabled, onClick = onClick) {
         Content(
-            leading = { leadingIcon.Icon(leadingIconTint) },
+            leading = { leadingIcon.icon(leadingIconTint) },
             text = text,
             textColor = textColor,
             trailing = { Switch(checked = checked, enabled = enabled, onCheckedChange = null) },
@@ -118,7 +118,7 @@ fun SettingsItemDetail(
 ) {
     val content: @Composable ColumnScope.() -> Unit = {
         Content(
-            leading = { icon.Icon(iconTint) },
+            leading = { icon.icon(iconTint) },
             text = text,
             textColor = textColor,
             trailing = { trailingText?.let { Text(text = it) } },
@@ -157,7 +157,7 @@ private fun Content(leading: @Composable () -> Unit, text: String, textColor: Co
 }
 
 @Composable
-private fun ImageVector?.Icon(tint: Color = LocalContentColor.current) =
+private fun ImageVector?.icon(tint: Color = LocalContentColor.current) =
     this?.let { Icon(imageVector = it, contentDescription = null, modifier = Modifier.size(24.dp), tint = tint) }
 
 @Preview(showBackground = true)

@@ -20,6 +20,7 @@ package com.geeksville.mesh.model
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Base64
+import androidx.core.net.toUri
 import com.geeksville.mesh.AppOnlyProtos.ChannelSet
 import com.geeksville.mesh.android.BuildUtils.errormsg
 import com.google.zxing.BarcodeFormat
@@ -75,7 +76,7 @@ fun ChannelSet.getChannelUrl(upperCasePrefix: Boolean = false, shouldAdd: Boolea
     val enc = Base64.encodeToString(channelBytes, BASE64FLAGS)
     val p = if (upperCasePrefix) URL_PREFIX.uppercase() else URL_PREFIX
     val query = if (shouldAdd) "?add=true" else ""
-    return Uri.parse("$p$query#$enc")
+    return "$p$query#$enc".toUri()
 }
 
 fun ChannelSet.qrCode(shouldAdd: Boolean): Bitmap? = try {
