@@ -382,6 +382,14 @@ class MeshService :
      *   See [Service.onStartCommand] for details.
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // If the service is restarted with a null intent, it indicates a problem.
+        // We return START_NOT_STICKY to prevent the service from entering a broken state.
+        if (intent == null) {
+            errormsg("Service restarted with null intent, stopping to prevent crash.")
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         val a = radioInterfaceService.getBondedDeviceAddress()
         val wantForeground = a != null && a != NO_DEVICE_SELECTED
 
@@ -423,7 +431,9 @@ class MeshService :
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
             START_NOT_STICKY
         } else {
-            START_STICKY
+            // Use START_REDELIVER_INTENT to ensure the last intent is re-delivered on restart,
+            // avoiding null intents that can cause crashes.
+            START_REDELIVER_INTENT
         }
     }
 
