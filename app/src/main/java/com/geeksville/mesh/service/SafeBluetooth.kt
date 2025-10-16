@@ -252,6 +252,23 @@ class SafeBluetooth(
                 completeWork(status, characteristic)
             }
 
+            // API 33+ callback with value parameter (overload for modern Android)
+            @Suppress("OVERRIDE_DEPRECATION")
+            override fun onCharacteristicRead(
+                gatt: BluetoothGatt,
+                characteristic: BluetoothGattCharacteristic,
+                value: ByteArray,
+                status: Int,
+            ) {
+                // Store value in characteristic for compatibility with existing code
+                // Note: This is safe because we clone the value before using it
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    @Suppress("DEPRECATION")
+                    characteristic.value = value
+                }
+                completeWork(status, characteristic)
+            }
+
             override fun onReliableWriteCompleted(gatt: BluetoothGatt, status: Int) {
                 completeWork(status, Unit)
             }
@@ -263,7 +280,9 @@ class SafeBluetooth(
             ) {
                 val reliable = currentReliableWrite
                 if (reliable != null) {
-                    if (!characteristic.value.contentEquals(reliable)) {
+                    @Suppress("DEPRECATION")
+                    val charValue = characteristic.value
+                    if (!charValue.contentEquals(reliable)) {
                         Timber.e("A reliable write failed!")
                         gatt.abortReliableWrite()
                         completeWork(STATUS_RELIABLE_WRITE_FAILED, characteristic) // skanky code to indicate failure
@@ -299,6 +318,26 @@ class SafeBluetooth(
                 }
             }
 
+            // API 33+ callback with value parameter (overload for modern Android)
+            @Suppress("OVERRIDE_DEPRECATION")
+            override fun onCharacteristicChanged(
+                gatt: BluetoothGatt,
+                characteristic: BluetoothGattCharacteristic,
+                value: ByteArray,
+            ) {
+                // Store value in characteristic for compatibility with existing code
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    @Suppress("DEPRECATION")
+                    characteristic.value = value
+                }
+                val handler = notifyHandlers.get(characteristic.uuid)
+                if (handler == null) {
+                    Timber.w("Received notification from $characteristic, but no handler registered")
+                } else {
+                    exceptionReporter { handler(characteristic) }
+                }
+            }
+
             /**
              * Callback indicating the result of a descriptor write operation.
              *
@@ -318,6 +357,22 @@ class SafeBluetooth(
              * @param status [BluetoothGatt.GATT_SUCCESS] if the read operation was completed successfully
              */
             override fun onDescriptorRead(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
+                completeWork(status, descriptor)
+            }
+
+            // API 33+ callback with value parameter for descriptor read (overload for modern Android)
+            @Suppress("OVERRIDE_DEPRECATION")
+            override fun onDescriptorRead(
+                gatt: BluetoothGatt,
+                descriptor: BluetoothGattDescriptor,
+                value: ByteArray,
+                status: Int,
+            ) {
+                // Store value in descriptor for compatibility with existing code
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    @Suppress("DEPRECATION")
+                    descriptor.value = value
+                }
                 completeWork(status, descriptor)
             }
 
@@ -460,12 +515,8 @@ class SafeBluetooth(
         currentConnectIsAuto = autoNow
         logAssert(gatt == null)
 
-        val g =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                device.connectGatt(context, autoNow, gattCallback, BluetoothDevice.TRANSPORT_LE)
-            } else {
-                device.connectGatt(context, autoNow, gattCallback)
-            }
+        // MinSdk is 26, so we always use TRANSPORT_LE
+        val g = device.connectGatt(context, autoNow, gattCallback, BluetoothDevice.TRANSPORT_LE)
 
         gatt = g
         return g
@@ -621,8 +672,22 @@ class SafeBluetooth(
         timeout: Long = 0,
     ) = queueWork("writeC ${c.uuid}", cont, timeout) {
         currentReliableWrite = null
-        c.value = v
-        gatt?.writeCharacteristic(c) ?: false
+        val g = gatt
+        if (g != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                // Use modern API for Android 13+
+                g.writeCharacteristic(c, v, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) ==
+                    BluetoothGatt.GATT_SUCCESS
+            } else {
+                // Use deprecated API for older Android versions
+                @Suppress("DEPRECATION")
+                c.value = v
+                @Suppress("DEPRECATION")
+                g.writeCharacteristic(c)
+            }
+        } else {
+            false
+        }
     }
 
     fun asyncWriteCharacteristic(
@@ -643,9 +708,24 @@ class SafeBluetooth(
      */
     private fun queueWriteReliable(c: BluetoothGattCharacteristic, cont: Continuation<Unit>, timeout: Long = 0) =
         queueWork("rwriteC ${c.uuid}", cont, timeout) {
-            logAssert(gatt!!.beginReliableWrite())
-            currentReliableWrite = c.value.clone()
-            gatt?.writeCharacteristic(c) ?: false
+            val g = gatt
+            if (g != null) {
+                logAssert(g.beginReliableWrite())
+                @Suppress("DEPRECATION")
+                currentReliableWrite = c.value.clone()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    // Use modern API for Android 13+
+                    @Suppress("DEPRECATION")
+                    g.writeCharacteristic(c, c.value, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) ==
+                        BluetoothGatt.GATT_SUCCESS
+                } else {
+                    // Use deprecated API for older Android versions
+                    @Suppress("DEPRECATION")
+                    g.writeCharacteristic(c)
+                }
+            } else {
+                false
+            }
         }
 
     fun asyncWriteReliable(c: BluetoothGattCharacteristic, cb: (Result<Unit>) -> Unit) =
@@ -655,12 +735,32 @@ class SafeBluetooth(
 
     private fun queueWriteDescriptor(
         c: BluetoothGattDescriptor,
+        value: ByteArray,
         cont: Continuation<BluetoothGattDescriptor>,
         timeout: Long = 0,
-    ) = queueWork("writeD", cont, timeout) { gatt?.writeDescriptor(c) ?: false }
+    ) = queueWork("writeD", cont, timeout) {
+        val g = gatt
+        if (g != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                // Use modern API for Android 13+
+                g.writeDescriptor(c, value) == BluetoothGatt.GATT_SUCCESS
+            } else {
+                // Use deprecated API for older Android versions
+                @Suppress("DEPRECATION")
+                c.value = value
+                @Suppress("DEPRECATION")
+                g.writeDescriptor(c)
+            }
+        } else {
+            false
+        }
+    }
 
-    fun asyncWriteDescriptor(c: BluetoothGattDescriptor, cb: (Result<BluetoothGattDescriptor>) -> Unit) =
-        queueWriteDescriptor(c, CallbackContinuation(cb))
+    fun asyncWriteDescriptor(
+        c: BluetoothGattDescriptor,
+        value: ByteArray,
+        cb: (Result<BluetoothGattDescriptor>) -> Unit,
+    ) = queueWriteDescriptor(c, value, CallbackContinuation(cb))
 
     // Added: Support reading remote RSSI
     private fun queueReadRemoteRssi(cont: Continuation<Int>, timeout: Long = 0) =
@@ -762,12 +862,14 @@ class SafeBluetooth(
                 ?: throw BLEException(
                     "Notify descriptor not found for ${c.uuid}",
                 ) // This can happen on buggy BLE implementations
-        descriptor.value =
+        
+        val descriptorValue =
             if (enable) {
                 BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
             } else {
                 BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
             }
-        asyncWriteDescriptor(descriptor) { Timber.d("Notify enable=$enable completed") }
+        
+        asyncWriteDescriptor(descriptor, descriptorValue) { Timber.d("Notify enable=$enable completed") }
     }
 }
