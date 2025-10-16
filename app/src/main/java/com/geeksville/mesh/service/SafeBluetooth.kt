@@ -40,7 +40,6 @@ import com.geeksville.mesh.util.exceptionReporter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.meshtastic.core.analytics.platform.PlatformAnalytics
@@ -49,7 +48,7 @@ import java.io.Closeable
 import java.util.UUID
 
 private val Context.bluetoothManager
-    get() = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager?
+    get() = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
 
 // / Return a standard BLE 128 bit UUID from the short 16 bit versions
 fun longBLEUUID(hexFour: String): UUID = UUID.fromString("0000$hexFour-0000-1000-8000-00805f9b34fb")
@@ -74,8 +73,8 @@ class SafeBluetooth(
 
     @Volatile var state = BluetoothProfile.STATE_DISCONNECTED
 
-    @Volatile private var currentWork: BluetoothContinuation? = null
-    private val workQueue = mutableListOf<BluetoothContinuation>()
+    @Volatile private var currentWork: BluetoothWorkItem? = null
+    private val workQueue = mutableListOf<BluetoothWorkItem>()
 
     // Called for reconnection attemps
     @Volatile private var connectionCallback: ((Result<Unit>) -> Unit)? = null
@@ -93,34 +92,28 @@ class SafeBluetooth(
     // 0x2902 org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
     private val configurationDescriptorUUID = longBLEUUID("2902")
 
-    /**
-     * a schedulable bit of bluetooth work, includes both the closure to call to start the operation and the completion
-     * (either async or sync) to call when it completes
-     */
-    private class BluetoothContinuation(
+    /** A data class representing a schedulable unit of Bluetooth work. */
+    private data class BluetoothWorkItem(
         val tag: String,
-        val completion: com.geeksville.mesh.concurrent.Continuation<*>,
+        val completion: Continuation<*>,
         val timeoutMillis: Long = 0, // If we want to timeout this operation at a certain time, use a non zero value
         private val startWorkFn: () -> Boolean,
     ) {
-
-        // / Start running a queued bit of work, return true for success or false for fatal bluetooth error
+        /** Start running a queued bit of work, return true for success or false for fatal bluetooth error. */
         fun startWork(): Boolean {
             Timber.d("Starting work: $tag")
             return startWorkFn()
         }
 
-        override fun toString(): String = "Work:$tag"
-
-        // / Connection work items are treated specially
-        fun isConnect() = tag == "connect" || tag == "reconnect"
+        /** Connection work items are treated specially. */
+        fun isConnect(): Boolean = tag == "connect" || tag == "reconnect"
     }
 
     /**
      * skanky hack to restart BLE if it says it is hosed
      * https://stackoverflow.com/questions/35103701/ble-android-onconnectionstatechange-not-being-called
      */
-    private val mHandler: Handler = Handler(Looper.getMainLooper())
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     fun restartBle() {
         analytics.track("ble_restart") // record # of times we needed to use this nasty hack
@@ -129,14 +122,12 @@ class SafeBluetooth(
             if (adp.isEnabled) {
                 adp.disable()
                 // TODO: display some kind of UI about restarting BLE
-                mHandler.postDelayed(
-                    object : Runnable {
-                        override fun run() {
-                            if (!adp.isEnabled) {
-                                adp.enable()
-                            } else {
-                                mHandler.postDelayed(this, 2500)
-                            }
+                mainHandler.postDelayed(
+                    {
+                        if (!adp.isEnabled) {
+                            adp.enable()
+                        } else {
+                            mainHandler.postDelayed(this::restartBle, 2500)
                         }
                     },
                     2500,
@@ -146,7 +137,6 @@ class SafeBluetooth(
     }
 
     companion object {
-
         // Our own custom BLE status codes
         private const val STATUS_RELIABLE_WRITE_FAILED = 4403
         private const val STATUS_TIMEOUT = 4404
@@ -250,7 +240,6 @@ class SafeBluetooth(
             }
 
             // API 33+ callback with value parameter (overload for modern Android)
-            @Suppress("OVERRIDE_DEPRECATION")
             override fun onCharacteristicRead(
                 gatt: BluetoothGatt,
                 characteristic: BluetoothGattCharacteristic,
@@ -300,24 +289,14 @@ class SafeBluetooth(
                 if (isSettingMtu) completeWork(status, Unit) else Timber.e("Ignoring bogus onMtuChanged")
             }
 
-            /**
-             * Callback triggered as a result of a remote characteristic notification.
-             *
-             * @param gatt GATT client the characteristic is associated with
-             * @param characteristic Characteristic that has been updated as a result of a remote notification event.
-             */
+            /** Callback triggered as a result of a remote characteristic notification. */
             @Suppress("OVERRIDE_DEPRECATION")
             override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
-                val handler = notifyHandlers.get(characteristic.uuid)
-                if (handler == null) {
-                    Timber.w("Received notification from $characteristic, but no handler registered")
-                } else {
-                    exceptionReporter { handler(characteristic) }
-                }
+                notifyHandlers[characteristic.uuid]?.let { handler -> exceptionReporter { handler(characteristic) } }
+                    ?: Timber.w("Received notification from $characteristic, but no handler registered")
             }
 
             // API 33+ callback with value parameter (overload for modern Android)
-            @Suppress("OVERRIDE_DEPRECATION")
             override fun onCharacteristicChanged(
                 gatt: BluetoothGatt,
                 characteristic: BluetoothGattCharacteristic,
@@ -328,39 +307,21 @@ class SafeBluetooth(
                     @Suppress("DEPRECATION")
                     characteristic.value = value
                 }
-                val handler = notifyHandlers[characteristic.uuid]
-                if (handler == null) {
-                    Timber.w("Received notification from $characteristic, but no handler registered")
-                } else {
-                    exceptionReporter { handler(characteristic) }
-                }
+                onCharacteristicChanged(gatt, characteristic)
             }
 
-            /**
-             * Callback indicating the result of a descriptor write operation.
-             *
-             * @param gatt GATT client invoked [BluetoothGatt.writeDescriptor]
-             * @param descriptor Descriptor that was writte to the associated remote device.
-             * @param status The result of the write operation [BluetoothGatt.GATT_SUCCESS] if the operation succeeds.
-             */
+            /** Callback indicating the result of a descriptor write operation. */
             override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
                 completeWork(status, descriptor)
             }
 
-            /**
-             * Callback reporting the result of a descriptor read operation.
-             *
-             * @param gatt GATT client invoked [BluetoothGatt.readDescriptor]
-             * @param descriptor Descriptor that was read from the associated remote device.
-             * @param status [BluetoothGatt.GATT_SUCCESS] if the read operation was completed successfully
-             */
+            /** Callback reporting the result of a descriptor read operation. */
             @Suppress("OVERRIDE_DEPRECATION")
             override fun onDescriptorRead(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
                 completeWork(status, descriptor)
             }
 
             // API 33+ callback with value parameter for descriptor read (overload for modern Android)
-            @Suppress("OVERRIDE_DEPRECATION")
             override fun onDescriptorRead(
                 gatt: BluetoothGatt,
                 descriptor: BluetoothGattDescriptor,
@@ -391,25 +352,25 @@ class SafeBluetooth(
             val newWork = workQueue.removeAt(0)
             currentWork = newWork
 
-            if (newWork.timeoutMillis != 0L) {
+            if (newWork.timeoutMillis > 0) {
                 activeTimeout =
                     serviceScope.launch {
-                        // Timber.d("Starting failsafe timer ${newWork.timeoutMillis}")
                         delay(newWork.timeoutMillis)
-                        Timber.e("Failsafe BLE timer expired!")
+                        Timber.e("Failsafe BLE timer for ${newWork.tag} expired!")
                         completeWork(STATUS_TIMEOUT, Unit) // Throw an exception in that work
                     }
             }
             isSettingMtu = false // Most work is not doing MTU stuff, the work that is will re set this flag
+            newWork.startWork()
         }
     }
 
     private fun <T> queueWork(tag: String, cont: Continuation<T>, timeout: Long, initFn: () -> Boolean) {
-        val btCont = BluetoothContinuation(tag, cont, timeout, initFn)
+        val workItem = BluetoothWorkItem(tag, cont, timeout, initFn)
 
         synchronized(workQueue) {
-            Timber.d("Enqueuing work: ${btCont.tag}")
-            workQueue.add(btCont)
+            Timber.d("Enqueuing work: ${workItem.tag}")
+            workQueue.add(workItem)
 
             // if we don't have any outstanding operations, run first item in queue
             if (currentWork == null) startNewWork()
@@ -418,10 +379,8 @@ class SafeBluetooth(
 
     /** Stop any current work */
     private fun stopCurrentWork() {
-        activeTimeout?.let {
-            it.cancel()
-            activeTimeout = null
-        }
+        activeTimeout?.cancel()
+        activeTimeout = null
         currentWork = null
     }
 
@@ -431,30 +390,28 @@ class SafeBluetooth(
             // We might unexpectedly fail inside here, but we don't want to pass that exception back up to the bluetooth
             // GATT layer
 
-            // startup next job in queue before calling the completion handler
             val work =
                 synchronized(workQueue) {
-                    val w = currentWork
-
-                    if (w != null) {
-                        stopCurrentWork() // We are now no longer working on anything
-
-                        startNewWork()
+                    currentWork.also {
+                        if (it != null) {
+                            stopCurrentWork()
+                            startNewWork()
+                        }
                     }
-                    w
                 }
 
             if (work == null) {
-                Timber.w("wor completed, but we already killed it via failsafetimer? status=$status, res=$res")
+                Timber.w("Work completed, but it was already killed (possibly by timeout). status=$status, res=$res")
+                return@exceptionReporter
+            }
+
+            if (status != BluetoothGatt.GATT_SUCCESS) {
+                work.completion.resumeWithException(
+                    BLEStatusException(status, "Bluetooth status=$status while doing ${work.tag}"),
+                )
             } else {
-                // Timber.d("work ${work.tag} is completed, resuming status=$status, res=$res")
-                if (status != 0) {
-                    work.completion.resumeWithException(
-                        BLEStatusException(status, "Bluetooth status=$status while doing ${work.tag}"),
-                    )
-                } else {
-                    work.completion.resume(Result.success(res) as Result<Nothing>)
-                }
+                @Suppress("UNCHECKED_CAST")
+                work.completion.resume(Result.success(res) as Result<Nothing>)
             }
         }
     }
@@ -466,8 +423,8 @@ class SafeBluetooth(
             workQueue.forEach {
                 try {
                     it.completion.resumeWithException(ex)
-                } catch (ex: Exception) {
-                    Timber.e(ex, "Mystery exception, why were we informed about our own exceptions?")
+                } catch (e: Exception) {
+                    Timber.e(e, "Exception while failing work item ${it.tag}")
                 }
             }
             workQueue.clear()
@@ -515,8 +472,7 @@ class SafeBluetooth(
             // (the race condition does not affect that case). If that connection times out
             // you will get a callback with status=133. Then call BluetoothGatt#connect()
             // to initiate a background connection.
-            val g = lowLevelConnect(false)
-            g != null
+            lowLevelConnect(false) != null
         }
     }
 
@@ -547,25 +503,12 @@ class SafeBluetooth(
     }
 
     private fun lostConnection(reason: String) {
-        /*
-        Supposedly this reconnect attempt happens automatically
-        "If the connection was established through an auto connect, Android will
-        automatically try to reconnect to the remote device when it gets disconnected
-        until you manually call disconnect() or close(). Once a connection established
-        through direct connect disconnects, no attempt is made to reconnect to the remote device."
-        https://stackoverflow.com/questions/37965337/what-exactly-does-androids-bluetooth-autoconnect-parameter-do?rq=1
-
-        closeConnection()
-         */
         failAllWork(BLEException(reason))
 
         // Cancel any notifications - because when the device comes back it might have forgotten about us
         notifyHandlers.clear()
 
-        lostConnectCallback?.let {
-            Timber.d("calling lostConnect handler")
-            it.invoke()
-        }
+        lostConnectCallback?.invoke()
     }
 
     // / Drop our current connection and then requeue a connect as needed
@@ -605,11 +548,7 @@ class SafeBluetooth(
         queueReadCharacteristic(c, CallbackContinuation(cb))
 
     private fun queueDiscoverServices(cont: Continuation<Unit>, timeout: Long = 0) {
-        queueWork("discover", cont, timeout) {
-            gatt?.discoverServices()
-                ?: false // throw BLEException("GATT is null") - if we return false here it is probably because the
-            // device is being torn down
-        }
+        queueWork("discover", cont, timeout) { gatt?.discoverServices() ?: false }
     }
 
     fun asyncDiscoverServices(cb: (Result<Unit>) -> Unit) {
@@ -706,17 +645,6 @@ class SafeBluetooth(
      * closing and then poll until we see the callback has set gatt to null (indicating the CALLBACK has close the
      * gatt). If the timeout expires we assume the bug has occurred, and we manually close the gatt here.
      *
-     * Log of typical failure 06-29 08:47:15.035 29788-30155/com.geeksville.mesh D/BluetoothGatt: cancelOpen() - device:
-     * 24:62:AB:F8:40:9A 06-29 08:47:15.036 29788-30155/com.geeksville.mesh D/BluetoothGatt: close() 06-29 08:47:15.037
-     * 29788-30155/com.geeksville.mesh D/BluetoothGatt: unregisterApp() - mClientIf=5 06-29 08:47:15.037
-     * 29788-29813/com.geeksville.mesh D/BluetoothGatt: onClientConnectionState() - status=0 clientIf=5
-     * device=24:62:AB:F8:40:9A 06-29 08:47:15.037 29788-29813/com.geeksville.mesh W/BluetoothGatt: Unhandled exception
-     * in callback java.lang.NullPointerException: Attempt to invoke virtual method 'void
-     * android.bluetooth.BluetoothGattCallback.onConnectionStateChange(android.bluetooth.BluetoothGatt, int, int)' on a
-     * null object reference at android.bluetooth.BluetoothGatt$1.onClientConnectionState(BluetoothGatt.java:182) at
-     * android.bluetooth.IBluetoothGattCallback$Stub.onTransact(IBluetoothGattCallback.java:70) at
-     * android.os.Binder.execTransact(Binder.java:446)
-     *
      * per https://github.com/don/cordova-plugin-ble-central/issues/473#issuecomment-367687575
      */
     @Volatile private var isClosing = false
@@ -741,13 +669,10 @@ class SafeBluetooth(
                     gatt = null // clear gat before calling close, bcause close might throw dead object exception
                     g2.close()
                 }
-            } catch (ex: NullPointerException) {
-                // Attempt to invoke virtual method 'com.android.bluetooth.gatt.AdvertiseClient
-                // com.android.bluetooth.gatt.AdvertiseManager.getAdvertiseClient(int)' on a null object reference
-                // com.geeksville.mesh.service.SafeBluetooth.closeGatt
-                Timber.w("Ignoring NPE in close - probably buggy Samsung BLE")
-            } catch (ex: DeadObjectException) {
-                Timber.w("Ignoring dead object exception, probably bluetooth was just disabled")
+            } catch (e: NullPointerException) {
+                Timber.w(e, "Ignoring NPE in close - probably buggy Samsung BLE")
+            } catch (e: DeadObjectException) {
+                Timber.w(e, "Ignoring dead object exception, probably bluetooth was just disabled")
             } finally {
                 isClosing = false
             }
@@ -775,8 +700,6 @@ class SafeBluetooth(
     /** Close and destroy this SafeBluetooth instance. You'll need to make a new instance before using it again */
     override fun close() {
         closeConnection()
-
-        // context.unregisterReceiver(btStateReceiver)
     }
 
     // / asyncronously turn notification on/off for a characteristic
