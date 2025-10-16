@@ -365,8 +365,8 @@ class SafeBluetooth(
             override fun onDescriptorRead(
                 gatt: BluetoothGatt,
                 descriptor: BluetoothGattDescriptor,
-                value: ByteArray,
                 status: Int,
+                value: ByteArray,
             ) {
                 // Store value in descriptor for compatibility with existing code
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -862,14 +862,14 @@ class SafeBluetooth(
                 ?: throw BLEException(
                     "Notify descriptor not found for ${c.uuid}",
                 ) // This can happen on buggy BLE implementations
-        
+
         val descriptorValue =
             if (enable) {
                 BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
             } else {
                 BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
             }
-        
+
         asyncWriteDescriptor(descriptor, descriptorValue) { Timber.d("Notify enable=$enable completed") }
     }
 }
