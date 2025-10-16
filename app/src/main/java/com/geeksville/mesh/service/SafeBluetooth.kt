@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 Meshtastic LLC
+ * Copyright (c) 2024-2025 Meshtastic LLC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -142,14 +142,13 @@ class SafeBluetooth(
         private const val STATUS_TIMEOUT = 4404
     }
 
-    /**
-     * Should we automatically try to reconnect when we lose our connection?
-     *
-     * Originally this was true, but over time (now that clients are smarter and need to build up more state) I see this
-     * was a mistake. Now if the connection drops we just call the lostConnection callback and the client of this API is
-     * responsible for reconnecting. This also prevents nasty races when sometimes both the upperlayer and this layer
-     * decide to reconnect simultaneously.
-     */
+    // If we get a disconnect, just try again otherwise fail all current operations
+    // Note: if no work is pending (likely) we also just totally teardown and restart the
+    // connection, because we won't be
+    // throwing a lost connection exception to any worker.
+    // The original implementation had autoReconnect = true, but this was causing issues
+    // with clients trying to manage their own state and reconnect logic.
+    // Setting it to false means the client is responsible for initiating reconnects.
     private val autoReconnect = false
 
     private val gattCallback =
@@ -186,10 +185,7 @@ class SafeBluetooth(
                             if (oldstate == BluetoothProfile.STATE_CONNECTED) {
                                 Timber.i("Lost connection - aborting current work: $currentWork")
 
-                                // If we get a disconnect, just try again otherwise fail all current operations
-                                // Note: if no work is pending (likely) we also just totally teardown and restart the
-                                // connection, because we won't be
-                                // throwing a lost connection exception to any worker.
+                                // If autoReconnect is true and we are in a state where reconnecting makes sense
                                 if (autoReconnect && (currentWork == null || currentWork?.isConnect() == true)) {
                                     dropAndReconnect()
                                 } else {
@@ -457,11 +453,9 @@ class SafeBluetooth(
         return g
     }
 
-    // FIXME, pass in true for autoconnect - so we will autoconnect whenever the radio
-    // comes in range (even if we made this connect call long ago when we got powered on)
-    // see https://stackoverflow.com/questions/40156699/which-correct-flag-of-autoconnect-in-connectgatt-of-ble for
-    // more info.
-    // Otherwise if you pass in false, it will try to connect now and will timeout and fail in 30 seconds.
+    // If autoConnect is false, it will try to connect now and will timeout and fail in 30 seconds.
+    // If autoConnect is true, it will attempt to connect immediately and will also attempt to reconnect
+    // automatically if the connection is lost.
     private fun queueConnect(autoConnect: Boolean = false, cont: Continuation<Unit>, timeout: Long = 0) {
         this.autoConnect = autoConnect
 
@@ -472,7 +466,7 @@ class SafeBluetooth(
             // (the race condition does not affect that case). If that connection times out
             // you will get a callback with status=133. Then call BluetoothGatt#connect()
             // to initiate a background connection.
-            lowLevelConnect(false) != null
+            lowLevelConnect(autoConnect) != null
         }
     }
 
