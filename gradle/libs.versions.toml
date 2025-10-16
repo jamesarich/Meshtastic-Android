@@ -112,6 +112,13 @@ ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx
 ktorfit = { module = "de.jensklingenberg.ktorfit:ktorfit-lib", version.ref = "ktorfit" }
 okhttp3-logging-interceptor = { module = "com.squareup.okhttp3:logging-interceptor", version = "5.2.1" }
 
+# Nordic BLE
+ble-core = { module = "no.nordicsemi.kotlin.ble:core", version = "2.0.0-alpha09" }
+ble-core-android = { module = "no.nordicsemi.kotlin.ble:core-android", version = "2.0.0-alpha09" }
+ble-client-android = { module = "no.nordicsemi.kotlin.ble:client-android", version = "2.0.0-alpha09" }
+ble-client-core = { module = "no.nordicsemi.kotlin.ble:client-core", version = "2.0.0-alpha09" }
+ble-client-core-android = { module = "no.nordicsemi.kotlin.ble:client-core-android", version = "2.0.0-alpha09" }
+
 # Testing
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version = "1.3.0" }
 androidx-test-runner = { module = "androidx.test:runner", version = "1.7.0" }

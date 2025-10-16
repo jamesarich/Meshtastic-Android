@@ -235,6 +235,12 @@ dependencies {
     implementation(libs.accompanist.permissions)
     implementation(libs.timber)
 
+    implementation(libs.ble.core)
+    implementation(libs.ble.core.android)
+    implementation(libs.ble.client.android)
+    implementation(libs.ble.client.core)
+    implementation(libs.ble.client.core.android)
+
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     googleImplementation(libs.location.services)
