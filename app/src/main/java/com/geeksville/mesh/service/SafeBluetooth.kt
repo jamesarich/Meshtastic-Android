@@ -21,7 +21,6 @@ package com.geeksville.mesh.service
 
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
-import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
@@ -36,12 +35,6 @@ import com.geeksville.mesh.concurrent.CallbackContinuation
 import com.geeksville.mesh.concurrent.Continuation
 import com.geeksville.mesh.concurrent.SyncContinuation
 import com.geeksville.mesh.logAssert
-import com.geeksville.mesh.util.exceptionReporter
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import org.meshtastic.core.analytics.platform.PlatformAnalytics
 import timber.log.Timber
 import java.io.Closeable
@@ -73,8 +66,7 @@ class SafeBluetooth(
 
     @Volatile var state = BluetoothProfile.STATE_DISCONNECTED
 
-    @Volatile private var currentWork: BluetoothWorkItem? = null
-    private val workQueue = mutableListOf<BluetoothWorkItem>()
+    internal val workQueue = BluetoothWorkQueue()
 
     // Called for reconnection attemps
     @Volatile private var connectionCallback: ((Result<Unit>) -> Unit)? = null
@@ -82,9 +74,7 @@ class SafeBluetooth(
     @Volatile private var lostConnectCallback: (() -> Unit)? = null
 
     // / from characteristic UUIDs to the handler function for notfies
-    private val notifyHandlers = mutableMapOf<UUID, (BluetoothGattCharacteristic) -> Unit>()
-
-    private val serviceScope = CoroutineScope(Dispatchers.IO)
+    internal val notifyHandlers = mutableMapOf<UUID, (BluetoothGattCharacteristic) -> Unit>()
 
     /** A BLE status code based error */
     class BLEStatusException(val status: Int, msg: String) : BLEException(msg)
@@ -92,30 +82,13 @@ class SafeBluetooth(
     // 0x2902 org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
     private val configurationDescriptorUUID = longBLEUUID("2902")
 
-    /** A data class representing a schedulable unit of Bluetooth work. */
-    private data class BluetoothWorkItem(
-        val tag: String,
-        val completion: Continuation<*>,
-        val timeoutMillis: Long = 0, // If we want to timeout this operation at a certain time, use a non zero value
-        private val startWorkFn: () -> Boolean,
-    ) {
-        /** Start running a queued bit of work, return true for success or false for fatal bluetooth error. */
-        fun startWork(): Boolean {
-            Timber.d("Starting work: $tag")
-            return startWorkFn()
-        }
-
-        /** Connection work items are treated specially. */
-        fun isConnect(): Boolean = tag == "connect" || tag == "reconnect"
-    }
-
     /**
      * skanky hack to restart BLE if it says it is hosed
      * https://stackoverflow.com/questions/35103701/ble-android-onconnectionstatechange-not-being-called
      */
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    fun restartBle() {
+    internal fun restartBle() {
         analytics.track("ble_restart") // record # of times we needed to use this nasty hack
         Timber.w("Doing emergency BLE restart")
         context.bluetoothManager?.adapter?.let { adp ->
@@ -138,295 +111,16 @@ class SafeBluetooth(
 
     companion object {
         // Our own custom BLE status codes
-        private const val STATUS_RELIABLE_WRITE_FAILED = 4403
-        private const val STATUS_TIMEOUT = 4404
+        internal const val STATUS_RELIABLE_WRITE_FAILED = 4403
     }
 
-    // If we get a disconnect, just try again otherwise fail all current operations
-    // Note: if no work is pending (likely) we also just totally teardown and restart the
-    // connection, because we won't be
-    // throwing a lost connection exception to any worker.
     // The original implementation had autoReconnect = true, but this was causing issues
     // with clients trying to manage their own state and reconnect logic.
     // Setting it to false means the client is responsible for initiating reconnects.
-    private val autoReconnect = false
+    internal var autoReconnect = false
+        private set
 
-    private val gattCallback =
-        @Suppress("TooManyFunctions")
-        object : BluetoothGattCallback() {
-
-            override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) = exceptionReporter {
-                Timber.i("new bluetooth connection state $newState, status $status")
-
-                when (newState) {
-                    BluetoothProfile.STATE_CONNECTED -> {
-                        state = newState // we only care about connected/disconnected - not the transitional states
-
-                        // If autoconnect is on and this connect attempt failed, hopefully some future attempt will
-                        // succeed
-                        if (status != BluetoothGatt.GATT_SUCCESS && autoConnect) {
-                            Timber.e("Connect attempt failed $status, not calling connect completion handler...")
-                        } else {
-                            completeWork(status, Unit)
-                        }
-                    }
-
-                    BluetoothProfile.STATE_DISCONNECTED -> {
-                        if (gatt == null) {
-                            Timber.e("No gatt: ignoring connection state $newState, status $status")
-                        } else if (isClosing) {
-                            Timber.i("Got disconnect because we are shutting down, closing gatt")
-                            gatt = null
-                            g.close() // Finish closing our gatt here
-                        } else {
-                            // cancel any queued ops if we were already connected
-                            val oldstate = state
-                            state = newState
-                            if (oldstate == BluetoothProfile.STATE_CONNECTED) {
-                                Timber.i("Lost connection - aborting current work: $currentWork")
-
-                                // If autoReconnect is true and we are in a state where reconnecting makes sense
-                                if (autoReconnect && (currentWork == null || currentWork?.isConnect() == true)) {
-                                    dropAndReconnect()
-                                } else {
-                                    lostConnection("lost connection")
-                                }
-                            } else if (status == 133) {
-                                // We were not previously connected and we just failed with our non-auto connection
-                                // attempt.  Therefore we now need
-                                // to do an autoconnection attempt.  When that attempt succeeds/fails the normal
-                                // callbacks will be called
-
-                                // Note: To workaround https://issuetracker.google.com/issues/36995652
-                                // Always call BluetoothDevice#connectGatt() with autoConnect=false
-                                // (the race condition does not affect that case). If that connection times out
-                                // you will get a callback with status=133. Then call BluetoothGatt#connect()
-                                // to initiate a background connection.
-                                if (autoConnect) {
-                                    Timber.w("Failed on non-auto connect, falling back to auto connect attempt")
-                                    closeGatt() // Close the old non-auto connection
-                                    lowLevelConnect(true)
-                                }
-                            } else if (status == 147) {
-                                Timber.i("got 147, calling lostConnection()")
-                                lostConnection("code 147")
-                            }
-
-                            if (status == 257) { // mystery error code when phone is hung
-                                // throw Exception("Mystery bluetooth failure - debug me")
-                                restartBle()
-                            }
-                        }
-                    }
-                }
-            }
-
-            override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-                // For testing lie and claim failure
-                completeWork(status, Unit)
-            }
-
-            @Suppress("OVERRIDE_DEPRECATION")
-            override fun onCharacteristicRead(
-                gatt: BluetoothGatt,
-                characteristic: BluetoothGattCharacteristic,
-                status: Int,
-            ) {
-                completeWork(status, characteristic)
-            }
-
-            // API 33+ callback with value parameter (overload for modern Android)
-            override fun onCharacteristicRead(
-                gatt: BluetoothGatt,
-                characteristic: BluetoothGattCharacteristic,
-                value: ByteArray,
-                status: Int,
-            ) {
-                // Store value in characteristic for compatibility with existing code
-                // Note: This is safe because we clone the value before using it
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    @Suppress("DEPRECATION")
-                    characteristic.value = value
-                }
-                completeWork(status, characteristic)
-            }
-
-            override fun onReliableWriteCompleted(gatt: BluetoothGatt, status: Int) {
-                completeWork(status, Unit)
-            }
-
-            override fun onCharacteristicWrite(
-                gatt: BluetoothGatt,
-                characteristic: BluetoothGattCharacteristic,
-                status: Int,
-            ) {
-                val reliable = currentReliableWrite
-                if (reliable != null) {
-                    @Suppress("DEPRECATION")
-                    val charValue = characteristic.value
-                    if (!charValue.contentEquals(reliable)) {
-                        Timber.e("A reliable write failed!")
-                        gatt.abortReliableWrite()
-                        completeWork(STATUS_RELIABLE_WRITE_FAILED, characteristic) // skanky code to indicate failure
-                    } else {
-                        logAssert(gatt.executeReliableWrite())
-                        // After this execute reliable completes - we can continue with normal operations (see
-                        // onReliableWriteCompleted)
-                    }
-                } else {
-                    // Just a standard write - do the normal flow
-                    completeWork(status, characteristic)
-                }
-            }
-
-            override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
-                // Alas, passing back an Int mtu isn't working and since I don't really care what MTU
-                // the device was willing to let us have I'm just punting and returning Unit
-                if (isSettingMtu) completeWork(status, Unit) else Timber.e("Ignoring bogus onMtuChanged")
-            }
-
-            /** Callback triggered as a result of a remote characteristic notification. */
-            @Suppress("OVERRIDE_DEPRECATION")
-            override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
-                notifyHandlers[characteristic.uuid]?.let { handler -> exceptionReporter { handler(characteristic) } }
-                    ?: Timber.w("Received notification from $characteristic, but no handler registered")
-            }
-
-            // API 33+ callback with value parameter (overload for modern Android)
-            override fun onCharacteristicChanged(
-                gatt: BluetoothGatt,
-                characteristic: BluetoothGattCharacteristic,
-                value: ByteArray,
-            ) {
-                // Store value in characteristic for compatibility with existing code
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    @Suppress("DEPRECATION")
-                    characteristic.value = value
-                }
-                onCharacteristicChanged(gatt, characteristic)
-            }
-
-            /** Callback indicating the result of a descriptor write operation. */
-            override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
-                completeWork(status, descriptor)
-            }
-
-            /** Callback reporting the result of a descriptor read operation. */
-            @Suppress("OVERRIDE_DEPRECATION")
-            override fun onDescriptorRead(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
-                completeWork(status, descriptor)
-            }
-
-            // API 33+ callback with value parameter for descriptor read (overload for modern Android)
-            override fun onDescriptorRead(
-                gatt: BluetoothGatt,
-                descriptor: BluetoothGattDescriptor,
-                status: Int,
-                value: ByteArray,
-            ) {
-                // Store value in descriptor for compatibility with existing code
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    @Suppress("DEPRECATION")
-                    descriptor.value = value
-                }
-                completeWork(status, descriptor)
-            }
-
-            // Added: callback for remote RSSI reads
-            override fun onReadRemoteRssi(gatt: BluetoothGatt, rssi: Int, status: Int) {
-                completeWork(status, rssi)
-            }
-        }
-
-    private var activeTimeout: Job? = null
-
-    // / If we have work we can do, start doing it.
-    private fun startNewWork() {
-        logAssert(currentWork == null)
-
-        if (workQueue.isNotEmpty()) {
-            val newWork = workQueue.removeAt(0)
-            currentWork = newWork
-
-            if (newWork.timeoutMillis > 0) {
-                activeTimeout =
-                    serviceScope.launch {
-                        delay(newWork.timeoutMillis)
-                        Timber.e("Failsafe BLE timer for ${newWork.tag} expired!")
-                        completeWork(STATUS_TIMEOUT, Unit) // Throw an exception in that work
-                    }
-            }
-            isSettingMtu = false // Most work is not doing MTU stuff, the work that is will re set this flag
-            newWork.startWork()
-        }
-    }
-
-    private fun <T> queueWork(tag: String, cont: Continuation<T>, timeout: Long, initFn: () -> Boolean) {
-        val workItem = BluetoothWorkItem(tag, cont, timeout, initFn)
-
-        synchronized(workQueue) {
-            Timber.d("Enqueuing work: ${workItem.tag}")
-            workQueue.add(workItem)
-
-            // if we don't have any outstanding operations, run first item in queue
-            if (currentWork == null) startNewWork()
-        }
-    }
-
-    /** Stop any current work */
-    private fun stopCurrentWork() {
-        activeTimeout?.cancel()
-        activeTimeout = null
-        currentWork = null
-    }
-
-    /** Called from our big GATT callback, completes the current job and then schedules a new one */
-    private fun <T : Any> completeWork(status: Int, res: T) {
-        exceptionReporter {
-            // We might unexpectedly fail inside here, but we don't want to pass that exception back up to the bluetooth
-            // GATT layer
-
-            val work =
-                synchronized(workQueue) {
-                    currentWork.also {
-                        if (it != null) {
-                            stopCurrentWork()
-                            startNewWork()
-                        }
-                    }
-                }
-
-            if (work == null) {
-                Timber.w("Work completed, but it was already killed (possibly by timeout). status=$status, res=$res")
-                return@exceptionReporter
-            }
-
-            if (status != BluetoothGatt.GATT_SUCCESS) {
-                work.completion.resumeWithException(
-                    BLEStatusException(status, "Bluetooth status=$status while doing ${work.tag}"),
-                )
-            } else {
-                @Suppress("UNCHECKED_CAST")
-                work.completion.resume(Result.success(res) as Result<Nothing>)
-            }
-        }
-    }
-
-    /** Something went wrong, abort all queued */
-    private fun failAllWork(ex: Exception) {
-        synchronized(workQueue) {
-            Timber.w("Failing ${workQueue.size} works, because ${ex.message}")
-            workQueue.forEach {
-                try {
-                    it.completion.resumeWithException(ex)
-                } catch (e: Exception) {
-                    Timber.e(e, "Exception while failing work item ${it.tag}")
-                }
-            }
-            workQueue.clear()
-            stopCurrentWork()
-        }
-    }
+    private val gattCallback = SafeBluetoothGattCallback(this)
 
     // / helper glue to make sync continuations and then wait for the result
     private fun <T> makeSync(wrappedFn: (SyncContinuation<T>) -> Unit): T {
@@ -436,13 +130,14 @@ class SafeBluetooth(
     }
 
     // Is the gatt trying to repeatedly connect as needed?
-    private var autoConnect = false
+    // private var autoConnect = false
 
     // / True if the current active connection is auto (possible for this to be false but autoConnect to be true
     // / if we are in the first non-automated lowLevel connect.
-    private var currentConnectIsAuto = false
+    internal var currentConnectIsAuto = false
+        private set
 
-    private fun lowLevelConnect(autoNow: Boolean): BluetoothGatt? {
+    internal fun lowLevelConnect(autoNow: Boolean): BluetoothGatt? {
         currentConnectIsAuto = autoNow
         logAssert(gatt == null)
 
@@ -457,10 +152,10 @@ class SafeBluetooth(
     // If autoConnect is true, it will attempt to connect immediately and will also attempt to reconnect
     // automatically if the connection is lost.
     private fun queueConnect(autoConnect: Boolean = false, cont: Continuation<Unit>, timeout: Long = 0) {
-        this.autoConnect = autoConnect
+        this.autoReconnect = autoConnect
 
         // assert(gatt == null) this now might be !null with our new reconnect support
-        queueWork("connect", cont, timeout) {
+        workQueue.queueWork("connect", cont, timeout) {
             // Note: To workaround https://issuetracker.google.com/issues/36995652
             // Always call BluetoothDevice#connectGatt() with autoConnect=false
             // (the race condition does not affect that case). If that connection times out
@@ -480,8 +175,8 @@ class SafeBluetooth(
      * So you should expect your callback might be called multiple times, each time to reestablish a new connection.
      */
     fun asyncConnect(autoConnect: Boolean = false, cb: (Result<Unit>) -> Unit, lostConnectCb: () -> Unit) {
-        logAssert(workQueue.isEmpty())
-        if (currentWork != null) throw AssertionError("currentWork was not null: $currentWork")
+        // logAssert(workQueue.isEmpty())
+        if (workQueue.currentWork != null) throw AssertionError("currentWork was not null: ${workQueue.currentWork}")
 
         lostConnectCallback = lostConnectCb
         connectionCallback = if (autoConnect) cb else null
@@ -496,8 +191,8 @@ class SafeBluetooth(
         connectionCallback?.let { cb -> queueConnect(true, CallbackContinuation(cb)) }
     }
 
-    private fun lostConnection(reason: String) {
-        failAllWork(BLEException(reason))
+    internal fun lostConnection(reason: String) {
+        workQueue.failAllWork(BLEException(reason))
 
         // Cancel any notifications - because when the device comes back it might have forgotten about us
         notifyHandlers.clear()
@@ -506,14 +201,14 @@ class SafeBluetooth(
     }
 
     // / Drop our current connection and then requeue a connect as needed
-    private fun dropAndReconnect() {
+    internal fun dropAndReconnect() {
         lostConnection("lost connection, reconnecting")
 
         // Queue a new connection attempt
         val cb = connectionCallback
         if (cb != null) {
             Timber.d("queuing a reconnection callback")
-            assert(currentWork == null)
+            assert(workQueue.currentWork == null)
 
             if (
                 !currentConnectIsAuto
@@ -524,7 +219,7 @@ class SafeBluetooth(
 
             // note - we don't need an init fn (because that would normally redo the connectGatt call - which we don't
             // need)
-            queueWork("reconnect", CallbackContinuation(cb), 0) { true }
+            workQueue.queueWork("reconnect", CallbackContinuation(cb), 0) { true }
         } else {
             Timber.d("No connectionCallback registered")
         }
@@ -536,28 +231,25 @@ class SafeBluetooth(
         c: BluetoothGattCharacteristic,
         cont: Continuation<BluetoothGattCharacteristic>,
         timeout: Long = 0,
-    ) = queueWork("readC ${c.uuid}", cont, timeout) { gatt!!.readCharacteristic(c) }
+    ) = workQueue.queueWork("readC ${c.uuid}", cont, timeout) { gatt!!.readCharacteristic(c) }
 
     fun asyncReadCharacteristic(c: BluetoothGattCharacteristic, cb: (Result<BluetoothGattCharacteristic>) -> Unit) =
         queueReadCharacteristic(c, CallbackContinuation(cb))
 
     private fun queueDiscoverServices(cont: Continuation<Unit>, timeout: Long = 0) {
-        queueWork("discover", cont, timeout) { gatt?.discoverServices() ?: false }
+        workQueue.queueWork("discover", cont, timeout) { gatt?.discoverServices() ?: false }
     }
 
     fun asyncDiscoverServices(cb: (Result<Unit>) -> Unit) {
         queueDiscoverServices(CallbackContinuation(cb))
     }
 
-    /** On some phones we receive bogus mtu gatt callbacks, we need to ignore them if we weren't setting the mtu */
-    private var isSettingMtu = false
-
     /**
      * mtu operations seem to hang sometimes. To cope with this we have a 5 second timeout before throwing an exception
      * and cancelling the work
      */
-    private fun queueRequestMtu(len: Int, cont: Continuation<Unit>) = queueWork("reqMtu", cont, 10 * 1000) {
-        isSettingMtu = true
+    private fun queueRequestMtu(len: Int, cont: Continuation<Unit>) = workQueue.queueWork("reqMtu", cont, 10 * 1000) {
+        workQueue.isSettingMtu = true
         gatt?.requestMtu(len) ?: false
     }
 
@@ -565,14 +257,14 @@ class SafeBluetooth(
         queueRequestMtu(len, CallbackContinuation(cb))
     }
 
-    private var currentReliableWrite: ByteArray? = null
+    @Volatile internal var currentReliableWrite: ByteArray? = null
 
     private fun queueWriteCharacteristic(
         c: BluetoothGattCharacteristic,
         v: ByteArray,
         cont: Continuation<BluetoothGattCharacteristic>,
         timeout: Long = 0,
-    ) = queueWork("writeC ${c.uuid}", cont, timeout) {
+    ) = workQueue.queueWork("writeC ${c.uuid}", cont, timeout) {
         currentReliableWrite = null
         val g = gatt
         if (g != null) {
@@ -603,7 +295,7 @@ class SafeBluetooth(
         value: ByteArray,
         cont: Continuation<BluetoothGattDescriptor>,
         timeout: Long = 0,
-    ) = queueWork("writeD", cont, timeout) {
+    ) = workQueue.queueWork("writeD", cont, timeout) {
         val g = gatt
         if (g != null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -629,7 +321,7 @@ class SafeBluetooth(
 
     // Added: Support reading remote RSSI
     private fun queueReadRemoteRssi(cont: Continuation<Int>, timeout: Long = 0) =
-        queueWork("readRSSI", cont, timeout) { gatt?.readRemoteRssi() ?: false }
+        workQueue.queueWork("readRSSI", cont, timeout) { gatt?.readRemoteRssi() ?: false }
 
     fun asyncReadRemoteRssi(cb: (Result<Int>) -> Unit) = queueReadRemoteRssi(CallbackContinuation(cb))
 
@@ -641,7 +333,7 @@ class SafeBluetooth(
      *
      * per https://github.com/don/cordova-plugin-ble-central/issues/473#issuecomment-367687575
      */
-    @Volatile private var isClosing = false
+    @Volatile internal var isClosing = false
 
     /** Close just the GATT device but keep our pending callbacks active */
     fun closeGatt() {
@@ -688,7 +380,7 @@ class SafeBluetooth(
 
         closeGatt()
 
-        failAllWork(BLEConnectionClosing())
+        workQueue.failAllWork(BLEConnectionClosing())
     }
 
     /** Close and destroy this SafeBluetooth instance. You'll need to make a new instance before using it again */
