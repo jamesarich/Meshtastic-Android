@@ -46,7 +46,6 @@ import kotlinx.coroutines.launch
 import org.meshtastic.core.analytics.platform.PlatformAnalytics
 import timber.log.Timber
 import java.io.Closeable
-import java.util.Random
 import java.util.UUID
 
 private val Context.bluetoothManager
@@ -154,8 +153,6 @@ class SafeBluetooth(
         // Our own custom BLE status codes
         private const val STATUS_RELIABLE_WRITE_FAILED = 4403
         private const val STATUS_TIMEOUT = 4404
-        private const val STATUS_NOSTART = 4405
-        private const val STATUS_SIMFAILURE = 4406
     }
 
     /**
@@ -334,7 +331,7 @@ class SafeBluetooth(
                     @Suppress("DEPRECATION")
                     characteristic.value = value
                 }
-                val handler = notifyHandlers.get(characteristic.uuid)
+                val handler = notifyHandlers[characteristic.uuid]
                 if (handler == null) {
                     Timber.w("Received notification from $characteristic, but no handler registered")
                 } else {
@@ -387,13 +384,6 @@ class SafeBluetooth(
             }
         }
 
-    // To test loss of BLE faults we can randomly fail a certain % of all work items.  We
-    // skip this for "connect" items because the handling for connection failure is special
-    var simFailures = false
-    var failPercent =
-        10 // 15% failure is unusably high because of constant reconnects, 7% somewhat usable, 10% pretty bad
-    private val failRandom = Random()
-
     private var activeTimeout: Job? = null
 
     // / If we have work we can do, start doing it.
@@ -413,21 +403,7 @@ class SafeBluetooth(
                         completeWork(STATUS_TIMEOUT, Unit) // Throw an exception in that work
                     }
             }
-
             isSettingMtu = false // Most work is not doing MTU stuff, the work that is will re set this flag
-
-            val failThis = simFailures && !newWork.isConnect() && failRandom.nextInt(100) < failPercent
-
-            if (failThis) {
-                Timber.e("Simulating random work failure!")
-                completeWork(STATUS_SIMFAILURE, Unit)
-            } else {
-                val started = newWork.startWork()
-                if (!started) {
-                    Timber.e("Failed to start work, returned error status")
-                    completeWork(STATUS_NOSTART, Unit) // abandon the current attempt and try for another
-                }
-            }
         }
     }
 
@@ -631,11 +607,6 @@ class SafeBluetooth(
     fun asyncReadCharacteristic(c: BluetoothGattCharacteristic, cb: (Result<BluetoothGattCharacteristic>) -> Unit) =
         queueReadCharacteristic(c, CallbackContinuation(cb))
 
-    fun readCharacteristic(c: BluetoothGattCharacteristic, timeout: Long = timeoutMsec): BluetoothGattCharacteristic =
-        makeSync {
-            queueReadCharacteristic(c, it, timeout)
-        }
-
     private fun queueDiscoverServices(cont: Continuation<Unit>, timeout: Long = 0) {
         queueWork("discover", cont, timeout) {
             gatt?.discoverServices()
@@ -647,8 +618,6 @@ class SafeBluetooth(
     fun asyncDiscoverServices(cb: (Result<Unit>) -> Unit) {
         queueDiscoverServices(CallbackContinuation(cb))
     }
-
-    fun discoverServices() = makeSync<Unit> { queueDiscoverServices(it) }
 
     /** On some phones we receive bogus mtu gatt callbacks, we need to ignore them if we weren't setting the mtu */
     private var isSettingMtu = false
@@ -665,8 +634,6 @@ class SafeBluetooth(
     fun asyncRequestMtu(len: Int, cb: (Result<Unit>) -> Unit) {
         queueRequestMtu(len, CallbackContinuation(cb))
     }
-
-    fun requestMtu(len: Int): Unit = makeSync { queueRequestMtu(len, it) }
 
     private var currentReliableWrite: ByteArray? = null
 
@@ -700,43 +667,6 @@ class SafeBluetooth(
         v: ByteArray,
         cb: (Result<BluetoothGattCharacteristic>) -> Unit,
     ) = queueWriteCharacteristic(c, v, CallbackContinuation(cb))
-
-    fun writeCharacteristic(
-        c: BluetoothGattCharacteristic,
-        v: ByteArray,
-        timeout: Long = timeoutMsec,
-    ): BluetoothGattCharacteristic = makeSync { queueWriteCharacteristic(c, v, it, timeout) }
-
-    /**
-     * Like write, but we use the extra reliable flow documented here:
-     * https://stackoverflow.com/questions/24485536/what-is-reliable-write-in-ble
-     */
-    private fun queueWriteReliable(c: BluetoothGattCharacteristic, cont: Continuation<Unit>, timeout: Long = 0) =
-        queueWork("rwriteC ${c.uuid}", cont, timeout) {
-            val g = gatt
-            if (g != null) {
-                logAssert(g.beginReliableWrite())
-                @Suppress("DEPRECATION")
-                currentReliableWrite = c.value.clone()
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    // Use modern API for Android 13+
-                    @Suppress("DEPRECATION")
-                    g.writeCharacteristic(c, c.value, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) ==
-                        BluetoothStatusCodes.SUCCESS
-                } else {
-                    // Use deprecated API for older Android versions
-                    @Suppress("DEPRECATION")
-                    g.writeCharacteristic(c)
-                }
-            } else {
-                false
-            }
-        }
-
-    fun asyncWriteReliable(c: BluetoothGattCharacteristic, cb: (Result<Unit>) -> Unit) =
-        queueWriteReliable(c, CallbackContinuation(cb))
-
-    fun writeReliable(c: BluetoothGattCharacteristic): Unit = makeSync { queueWriteReliable(c, it) }
 
     private fun queueWriteDescriptor(
         c: BluetoothGattDescriptor,
@@ -772,8 +702,6 @@ class SafeBluetooth(
         queueWork("readRSSI", cont, timeout) { gatt?.readRemoteRssi() ?: false }
 
     fun asyncReadRemoteRssi(cb: (Result<Int>) -> Unit) = queueReadRemoteRssi(CallbackContinuation(cb))
-
-    fun readRemoteRssi(timeout: Long = timeoutMsec): Int = makeSync { queueReadRemoteRssi(it, timeout) }
 
     /**
      * Some old androids have a bug where calling disconnect doesn't guarantee that the onConnectionStateChange callback
