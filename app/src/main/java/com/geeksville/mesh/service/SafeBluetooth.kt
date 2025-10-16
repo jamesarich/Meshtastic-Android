@@ -26,6 +26,7 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
+import android.bluetooth.BluetoothStatusCodes
 import android.content.Context
 import android.os.Build
 import android.os.DeadObjectException
@@ -168,6 +169,7 @@ class SafeBluetooth(
     private val autoReconnect = false
 
     private val gattCallback =
+        @Suppress("TooManyFunctions")
         object : BluetoothGattCallback() {
 
             override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) = exceptionReporter {
@@ -244,6 +246,7 @@ class SafeBluetooth(
                 completeWork(status, Unit)
             }
 
+            @Suppress("OVERRIDE_DEPRECATION")
             override fun onCharacteristicRead(
                 gatt: BluetoothGatt,
                 characteristic: BluetoothGattCharacteristic,
@@ -309,6 +312,7 @@ class SafeBluetooth(
              * @param gatt GATT client the characteristic is associated with
              * @param characteristic Characteristic that has been updated as a result of a remote notification event.
              */
+            @Suppress("OVERRIDE_DEPRECATION")
             override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
                 val handler = notifyHandlers.get(characteristic.uuid)
                 if (handler == null) {
@@ -356,6 +360,7 @@ class SafeBluetooth(
              * @param descriptor Descriptor that was read from the associated remote device.
              * @param status [BluetoothGatt.GATT_SUCCESS] if the read operation was completed successfully
              */
+            @Suppress("OVERRIDE_DEPRECATION")
             override fun onDescriptorRead(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
                 completeWork(status, descriptor)
             }
@@ -677,7 +682,7 @@ class SafeBluetooth(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 // Use modern API for Android 13+
                 g.writeCharacteristic(c, v, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) ==
-                    BluetoothGatt.GATT_SUCCESS
+                    BluetoothStatusCodes.SUCCESS
             } else {
                 // Use deprecated API for older Android versions
                 @Suppress("DEPRECATION")
@@ -717,7 +722,7 @@ class SafeBluetooth(
                     // Use modern API for Android 13+
                     @Suppress("DEPRECATION")
                     g.writeCharacteristic(c, c.value, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) ==
-                        BluetoothGatt.GATT_SUCCESS
+                        BluetoothStatusCodes.SUCCESS
                 } else {
                     // Use deprecated API for older Android versions
                     @Suppress("DEPRECATION")
@@ -743,7 +748,7 @@ class SafeBluetooth(
         if (g != null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 // Use modern API for Android 13+
-                g.writeDescriptor(c, value) == BluetoothGatt.GATT_SUCCESS
+                g.writeDescriptor(c, value) == BluetoothStatusCodes.SUCCESS
             } else {
                 // Use deprecated API for older Android versions
                 @Suppress("DEPRECATION")
