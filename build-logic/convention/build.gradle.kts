@@ -19,7 +19,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     `kotlin-dsl`
-    // alias(libs.plugins.android.lint) // Removed: standalone lint plugin doesn't exist in AGP
+    alias(libs.plugins.android.lint)
     alias(libs.plugins.dependency.analysis)
 }
 
