@@ -234,6 +234,7 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.accompanist.permissions)
     implementation(libs.timber)
+    implementation("no.nordicsemi.android.kotlin.ble:client:2.0.0-alpha10")
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
