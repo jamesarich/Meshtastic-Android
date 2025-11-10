@@ -109,9 +109,8 @@ fun ConnectionsScreen(
     val selectedDevice by scanModel.selectedNotNullFlow.collectAsStateWithLifecycle()
     val bluetoothState by connectionsViewModel.bluetoothState.collectAsStateWithLifecycle()
     val regionUnset = config.lora.region == ConfigProtos.Config.LoRaConfig.RegionCode.UNSET
-
-    val bondedBleDevices by scanModel.bleDevicesForUi.collectAsStateWithLifecycle()
-    val scannedBleDevices by scanModel.scanResult.observeAsState(emptyMap())
+    val bleDevices by scanModel.bleDevicesForUi.collectAsStateWithLifecycle()
+    val bondedBleDevices = bleDevices.filter{ it is DeviceListEntry.Ble && it.bonded }
     val discoveredTcpDevices by scanModel.discoveredTcpDevicesForUi.collectAsStateWithLifecycle()
     val recentTcpDevices by scanModel.recentTcpDevicesForUi.collectAsStateWithLifecycle()
     val usbDevices by scanModel.usbDevicesForUi.collectAsStateWithLifecycle()
@@ -140,14 +139,6 @@ fun ConnectionsScreen(
                 }
             },
         )
-    }
-
-    // when scanning is true - wait 10000ms and then stop scanning
-    LaunchedEffect(scanning) {
-        if (scanning) {
-            delay(SCAN_PERIOD)
-            scanModel.stopScan()
-        }
     }
 
     LaunchedEffect(connectionState, regionUnset) {
@@ -231,10 +222,7 @@ fun ConnectionsScreen(
                                 BLEDevices(
                                     connectionState = connectionState,
                                     bondedDevices = bondedBleDevices,
-                                    availableDevices =
-                                    scannedBleDevices.values.toList().filterNot { available ->
-                                        bondedBleDevices.any { it.address == available.address }
-                                    },
+                                    availableDevices = bleDevices,
                                     selectedDevice = selectedDevice,
                                     scanModel = scanModel,
                                     bluetoothEnabled = bluetoothState.enabled,

@@ -18,7 +18,10 @@
 package com.geeksville.mesh.repository.radio
 
 import android.annotation.SuppressLint
-import android.app.Application
+import com.geeksville.mesh.repository.radio.BluetoothConstants.BTM_FROMNUM_CHARACTER
+import com.geeksville.mesh.repository.radio.BluetoothConstants.BTM_FROMRADIO_CHARACTER
+import com.geeksville.mesh.repository.radio.BluetoothConstants.BTM_SERVICE_UUID
+import com.geeksville.mesh.repository.radio.BluetoothConstants.BTM_TORADIO_CHARACTER
 import com.geeksville.mesh.service.RadioNotConnectedException
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -39,7 +42,6 @@ import no.nordicsemi.kotlin.ble.client.RemoteCharacteristic
 import no.nordicsemi.kotlin.ble.client.android.CentralManager
 import no.nordicsemi.kotlin.ble.client.android.ConnectionPriority
 import no.nordicsemi.kotlin.ble.client.android.Peripheral
-import no.nordicsemi.kotlin.ble.client.android.native
 import no.nordicsemi.kotlin.ble.core.WriteType
 import timber.log.Timber
 import java.util.UUID
@@ -52,7 +54,6 @@ import kotlin.uuid.toKotlinUuid
  *
  * This class is responsible for connecting to and communicating with a Meshtastic device over BLE.
  *
- * @param context The application context.
  * @param service The [RadioInterfaceService] to use for handling radio events.
  * @param address The BLE address of the device to connect to.
  */
@@ -60,7 +61,7 @@ import kotlin.uuid.toKotlinUuid
 class NordicBleInterface
 @AssistedInject
 constructor(
-    private val context: Application,
+    private val centralManager: CentralManager,
     private val service: RadioInterfaceService,
     @Assisted val address: String,
 ) : IRadioInterface {
@@ -68,8 +69,6 @@ constructor(
     private var peripheral: Peripheral? = null
     private val localScope: CoroutineScope
         get() = service.serviceScope
-
-    private lateinit var centralManager: CentralManager
 
     private var toRadioCharacteristic: RemoteCharacteristic? = null
     private var fromNumCharacteristic: RemoteCharacteristic? = null
@@ -128,11 +127,6 @@ constructor(
     }
 
     companion object {
-        val BTM_SERVICE_UUID: UUID = UUID.fromString("6ba1b218-15a8-461f-9fa8-5dcae273eafd")
-        val BTM_TORADIO_CHARACTER: UUID = UUID.fromString("f75c76d2-129e-4dad-a1dd-7866124401e7")
-        val BTM_FROMNUM_CHARACTER: UUID = UUID.fromString("ed9da18c-a800-4f66-a670-aa7547e34453")
-        val BTM_FROMRADIO_CHARACTER: UUID = UUID.fromString("2c55e69e-4993-11ed-b878-0242ac120002")
-
         private const val INTER_READ_DELAY_MS: Long = 5L
         private const val POST_WRITE_DELAY_MS: Long = 25L
     }
@@ -148,7 +142,6 @@ constructor(
     private fun connect() {
         localScope.launch {
             try {
-                centralManager = CentralManager.native(context, localScope)
                 peripheral = findAndConnectPeripheral()
                 peripheral?.let {
                     observePeripheralChanges()
@@ -165,7 +158,9 @@ constructor(
         val p = findPeripheral()
         centralManager.connect(
             peripheral = p,
-            options = CentralManager.ConnectionOptions.AutoConnect(automaticallyRequestHighestValueLength = true),
+            options = CentralManager.ConnectionOptions.AutoConnect(
+                automaticallyRequestHighestValueLength = true
+            ),
         )
         p.requestConnectionPriority(ConnectionPriority.HIGH)
         return p
@@ -174,7 +169,8 @@ constructor(
     private fun observePeripheralChanges() {
         peripheral?.let { p ->
             p.phy.onEach { phy -> Timber.d("PHY changed to $phy") }.launchIn(localScope)
-            p.connectionParameters.onEach { Timber.d("Connection parameters changed to $it") }.launchIn(localScope)
+            p.connectionParameters.onEach { Timber.d("Connection parameters changed to $it") }
+                .launchIn(localScope)
             p.state
                 .onEach { state ->
                     Timber.d("Peripheral state changed to $state")
@@ -185,7 +181,8 @@ constructor(
                 }
                 .launchIn(localScope)
         }
-        centralManager.state.onEach { state -> Timber.d("CentralManager state changed to $state") }.launchIn(localScope)
+        centralManager.state.onEach { state -> Timber.d("CentralManager state changed to $state") }
+            .launchIn(localScope)
     }
 
     @OptIn(ExperimentalUuidApi::class)
@@ -194,7 +191,8 @@ constructor(
             peripheral
                 .services(listOf(BTM_SERVICE_UUID.toKotlinUuid()))
                 .onEach { services ->
-                    val meshtasticService = services?.find { it.uuid == BTM_SERVICE_UUID.toKotlinUuid() }
+                    val meshtasticService =
+                        services?.find { it.uuid == BTM_SERVICE_UUID.toKotlinUuid() }
                     if (meshtasticService != null) {
                         toRadioCharacteristic =
                             meshtasticService.characteristics.find { it.uuid == BTM_TORADIO_CHARACTER.toKotlinUuid() }
@@ -292,15 +290,10 @@ constructor(
 
     /** Closes the connection to the device. */
     override fun close() {
-        val fn = fromNumCharacteristic
+        val p = peripheral
         localScope.launch {
             try {
-                fn?.setNotifying(false)
-            } catch (ex: Exception) {
-                Timber.w(ex, "Error disabling notifications on close")
-            }
-            try {
-                peripheral?.disconnect()
+                p?.disconnect()
             } catch (ex: Exception) {
                 Timber.w(ex, "Error while closing NordicBleInterface")
             }
@@ -308,5 +301,14 @@ constructor(
         toRadioCharacteristic = null
         fromNumCharacteristic = null
         fromRadioCharacteristic = null
+        peripheral = null
     }
 }
+
+object BluetoothConstants {
+    val BTM_SERVICE_UUID: UUID = UUID.fromString("6ba1b218-15a8-461f-9fa8-5dcae273eafd")
+    val BTM_TORADIO_CHARACTER: UUID = UUID.fromString("f75c76d2-129e-4dad-a1dd-7866124401e7")
+    val BTM_FROMNUM_CHARACTER: UUID = UUID.fromString("ed9da18c-a800-4f66-a670-aa7547e34453")
+    val BTM_FROMRADIO_CHARACTER: UUID = UUID.fromString("2c55e69e-4993-11ed-b878-0242ac120002")
+}
+

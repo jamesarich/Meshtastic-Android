@@ -19,22 +19,22 @@ package com.geeksville.mesh.model
 
 import android.annotation.SuppressLint
 import android.app.Application
-import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.hardware.usb.UsbManager
 import android.os.RemoteException
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.geeksville.mesh.repository.bluetooth.BluetoothRepository
 import com.geeksville.mesh.repository.network.NetworkRepository
 import com.geeksville.mesh.repository.network.NetworkRepository.Companion.toAddressString
+import com.geeksville.mesh.repository.radio.BluetoothConstants.BTM_SERVICE_UUID
 import com.geeksville.mesh.repository.radio.InterfaceId
 import com.geeksville.mesh.repository.radio.RadioInterfaceService
 import com.geeksville.mesh.repository.usb.UsbRepository
 import com.geeksville.mesh.service.MeshService
 import com.hoho.android.usbserial.driver.UsbSerialDriver
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -42,11 +42,26 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNot
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onEmpty
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import no.nordicsemi.kotlin.ble.client.android.CentralManager
+import no.nordicsemi.kotlin.ble.client.android.Peripheral
+import no.nordicsemi.kotlin.ble.client.android.preview.PreviewPeripheral
+import no.nordicsemi.kotlin.ble.client.distinctByPeripheral
+import no.nordicsemi.kotlin.ble.core.BondState
+import no.nordicsemi.kotlin.ble.core.Manager
+import no.nordicsemi.kotlin.ble.core.Phy
+import no.nordicsemi.kotlin.ble.core.PhyInUse
+import org.meshtastic.core.common.hasBluetoothPermission
 import org.meshtastic.core.datastore.RecentAddressesDataSource
 import org.meshtastic.core.datastore.model.RecentAddress
 import org.meshtastic.core.model.util.anonymize
@@ -54,6 +69,9 @@ import org.meshtastic.core.service.ServiceRepository
 import org.meshtastic.core.ui.viewmodel.stateInWhileSubscribed
 import timber.log.Timber
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.toKotlinUuid
 import org.meshtastic.core.strings.R as Res
 
 /**
@@ -73,11 +91,11 @@ sealed class DeviceListEntry(open val name: String, open val fullAddress: String
         "DeviceListEntry(name=${name.anonymize}, addr=${address.anonymize}, bonded=$bonded)"
 
     @Suppress("MissingPermission")
-    data class Ble(val device: BluetoothDevice) :
+    data class Ble(val peripheral: Peripheral) :
         DeviceListEntry(
-            name = device.name ?: "unnamed-${device.address}",
-            fullAddress = "x${device.address}",
-            bonded = device.bondState == BluetoothDevice.BOND_BONDED,
+            name = peripheral.name ?: "unnamed-${peripheral.address}",
+            fullAddress = "x${peripheral.address}",
+            bonded = peripheral.bondState.value == BondState.BONDED,
         )
 
     data class Usb(
@@ -96,14 +114,15 @@ sealed class DeviceListEntry(open val name: String, open val fullAddress: String
     data class Mock(override val name: String) : DeviceListEntry(name, "m", true)
 }
 
+@OptIn(ExperimentalUuidApi::class)
 @HiltViewModel
 @Suppress("LongParameterList", "TooManyFunctions")
 class BTScanModel
 @Inject
 constructor(
     private val application: Application,
+    private val centralManager: CentralManager,
     private val serviceRepository: ServiceRepository,
-    private val bluetoothRepository: BluetoothRepository,
     private val usbRepository: UsbRepository,
     private val usbManagerLazy: dagger.Lazy<UsbManager>,
     private val networkRepository: NetworkRepository,
@@ -113,14 +132,25 @@ constructor(
     private val context: Context
         get() = application.applicationContext
 
+    private val _devices: MutableStateFlow<List<Peripheral>> =
+        MutableStateFlow(
+            listOf(
+                PreviewPeripheral(viewModelScope, phy = PhyInUse(txPhy = Phy.PHY_LE_1M, rxPhy = Phy.PHY_LE_2M)).apply {
+                    observePeripheralState(this, viewModelScope)
+                    observeBondState(this, viewModelScope)
+                },
+            ),
+        )
+    val devices: StateFlow<List<Peripheral>> = _devices.asStateFlow()
+
     val errorText = MutableLiveData<String?>(null)
 
     val showMockInterface: StateFlow<Boolean>
         get() = MutableStateFlow(radioInterfaceService.isMockInterface()).asStateFlow()
 
     private val bleDevicesFlow: StateFlow<List<DeviceListEntry.Ble>> =
-        bluetoothRepository.state
-            .map { ble -> ble.bondedDevices.map { DeviceListEntry.Ble(it) }.sortedBy { it.name } }
+        devices
+            .map { devices -> devices.map { DeviceListEntry.Ble(it) } }
             .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     // Flow for discovered TCP devices, using recent addresses for potential name enrichment
@@ -230,35 +260,27 @@ constructor(
         _spinner.value = false
     }
 
-    fun refreshPermissions() {
-        // Refresh the Bluetooth state to ensure we have the latest permissions
-        bluetoothRepository.refreshState()
-    }
-
     @SuppressLint("MissingPermission")
     fun startScan() {
         Timber.d("starting classic scan")
-
         _spinner.value = true
         scanJob =
-            bluetoothRepository
-                .scan()
-                .onEach { result ->
-                    val fullAddress =
-                        radioInterfaceService.toInterfaceAddress(InterfaceId.BLUETOOTH, result.device.address)
-                    // prevent log spam because we'll get lots of redundant scan results
-                    val oldDevs = scanResult.value!!
-                    val oldEntry = oldDevs[fullAddress]
-                    // Don't spam the GUI with endless updates for non changing nodes
-                    if (
-                        oldEntry == null || oldEntry.bonded != (result.device.bondState == BluetoothDevice.BOND_BONDED)
-                    ) {
-                        val entry = DeviceListEntry.Ble(result.device)
-                        oldDevs[entry.fullAddress] = entry
-                        scanResult.value = oldDevs
-                    }
+            centralManager
+                .scan { ServiceUuid(BTM_SERVICE_UUID.toKotlinUuid()) }
+                .onStart { _spinner.update { true } }
+                .distinctByPeripheral()
+                .map { it.peripheral }
+                .filterNot { _devices.value.contains(it) }
+                .onEach { newPeripheral ->
+                    Timber.i("Found new peripheral: $newPeripheral")
+                    _devices.update { devices.value + newPeripheral }
                 }
-                .catch { ex -> serviceRepository.setErrorMessage("Unexpected Bluetooth scan failure: ${ex.message}") }
+                .onEach { peripheral ->
+                    observePeripheralState(peripheral, viewModelScope)
+                    observeBondState(peripheral, viewModelScope)
+                }
+                .catch { t -> Timber.e(t, "Error while scanning for peripherals") }
+                .onCompletion { _spinner.update { false } }
                 .launchIn(viewModelScope)
     }
 
@@ -272,29 +294,8 @@ constructor(
     }
 
     @SuppressLint("MissingPermission")
-    private fun requestBonding(it: DeviceListEntry) {
-        val device = bluetoothRepository.getRemoteDevice(it.address) ?: return
-        Timber.i("Starting bonding for ${device.anonymize}")
-
-        bluetoothRepository
-            .createBond(device)
-            .onEach { state ->
-                Timber.d("Received bond state changed $state")
-                if (state != BluetoothDevice.BOND_BONDING) {
-                    Timber.d("Bonding completed, state=$state")
-                    if (state == BluetoothDevice.BOND_BONDED) {
-                        setErrorText(context.getString(Res.string.pairing_completed))
-                        changeDeviceAddress("x${device.address}")
-                    } else {
-                        setErrorText(context.getString(Res.string.pairing_failed_try_again))
-                    }
-                }
-            }
-            .catch { ex ->
-                // We ignore missing BT adapters, because it lets us run on the emulator
-                Timber.w("Failed creating Bluetooth bond: ${ex.message}")
-            }
-            .launchIn(viewModelScope)
+    private fun requestBonding(device: DeviceListEntry.Ble) {
+        viewModelScope.launch { device.peripheral.createBond() }
     }
 
     private fun requestPermission(it: DeviceListEntry.Usb) {
@@ -368,6 +369,85 @@ constructor(
     private val _spinner = MutableStateFlow(false)
     val spinner: StateFlow<Boolean>
         get() = _spinner.asStateFlow()
+
+    private fun observerPhy(peripheral: Peripheral, scope: CoroutineScope) {
+        peripheral.phy
+            .onEach { Timber.i("PHY changed to: $it") }
+            .onEmpty { Timber.w("PHY didn't change") }
+            .onCompletion { Timber.d("PHY collection completed") }
+            .launchIn(scope)
+    }
+
+    private fun observeConnectionParameters(peripheral: Peripheral, scope: CoroutineScope) {
+        peripheral.connectionParameters
+            .onEach { Timber.i("Connection parameters changed to: $it") }
+            .onEmpty { Timber.w("Connection parameters didn't change") }
+            .onCompletion { Timber.d("Connection parameters collection completed") }
+            .launchIn(scope)
+    }
+
+    @OptIn(ExperimentalUuidApi::class)
+    private fun observeServices(peripheral: Peripheral, scope: CoroutineScope) {
+        peripheral
+            .services()
+            .filterNotNull()
+            .onEach {
+                Timber.i("Services changed: $it")
+
+                // Read values of all characteristics.
+                it.forEach { remoteService ->
+                    remoteService.characteristics.forEach { remoteCharacteristic ->
+                        try {
+                            val value = remoteCharacteristic.read()
+                            Timber.i("Value of ${remoteCharacteristic.uuid}: 0x${value.toHexString()}")
+                        } catch (e: Exception) {
+                            Timber.e("Failed to read ${remoteCharacteristic.uuid}: ${e.message}")
+                        }
+                    }
+                }
+
+                it.forEach { remoteService ->
+                    remoteService.characteristics.forEach { remoteCharacteristic ->
+                        try {
+                            Timber.w("Subscribing to ${remoteCharacteristic.uuid}...")
+                            remoteCharacteristic
+                                .subscribe()
+                                .onEach { newValue ->
+                                    Timber.i(
+                                        "Value of ${remoteCharacteristic.uuid} changed: 0x${newValue.toHexString()}",
+                                    )
+                                }
+                                .onEmpty { Timber.w("No updates from ${remoteCharacteristic.uuid}") }
+                                .onCompletion {
+                                    Timber.d("Stopped observing updates from ${remoteCharacteristic.uuid}")
+                                }
+                                .launchIn(scope)
+                            Timber.i(
+                                "Notifications for ${remoteCharacteristic.uuid} are now ${if (remoteCharacteristic.isNotifying) "enabled" else "disabled"}",
+                            )
+                        } catch (e: Exception) {
+                            Timber.e("Failed to subscribe to ${remoteCharacteristic.uuid}: ${e.message}")
+                        }
+                    }
+                }
+            }
+            .onCompletion { Timber.d("Service collection completed") }
+            .launchIn(scope)
+    }
+
+    private fun observePeripheralState(peripheral: Peripheral, scope: CoroutineScope) {
+        peripheral.state
+            .onEach { Timber.i("State of $peripheral: $it") }
+            .onCompletion { Timber.d("State collection for $peripheral completed") }
+            .launchIn(scope)
+    }
+
+    private fun observeBondState(peripheral: Peripheral, scope: CoroutineScope) {
+        peripheral.bondState
+            .onEach { Timber.i("Bond state of $peripheral: $it") }
+            .onCompletion { Timber.d("Bond state collection for $peripheral completed") }
+            .launchIn(scope)
+    }
 }
 
 const val NO_DEVICE_SELECTED = "n"

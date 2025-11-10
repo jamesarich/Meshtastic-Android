@@ -17,7 +17,7 @@
 
 package com.geeksville.mesh.repository.radio
 
-import com.geeksville.mesh.repository.bluetooth.BluetoothRepository
+import no.nordicsemi.kotlin.ble.client.android.CentralManager
 import org.meshtastic.core.model.util.anonymize
 import timber.log.Timber
 import javax.inject.Inject
@@ -27,18 +27,6 @@ class NordicBleInterfaceSpec
 @Inject
 constructor(
     private val factory: NordicBleInterfaceFactory,
-    private val bluetoothRepository: BluetoothRepository,
 ) : InterfaceSpec<NordicBleInterface> {
     override fun createInterface(rest: String): NordicBleInterface = factory.create(rest)
-
-    /** Return true if this address is still acceptable. For BLE that means, still bonded */
-    override fun addressValid(rest: String): Boolean {
-        val allPaired = bluetoothRepository.state.value.bondedDevices.map { it.address }.toSet()
-        return if (!allPaired.contains(rest)) {
-            Timber.w("Ignoring stale bond to ${rest.anonymize}")
-            false
-        } else {
-            true
-        }
-    }
 }
