@@ -24,24 +24,18 @@ import com.hoho.android.usbserial.driver.UsbSerialDriver
 import dagger.Lazy
 import javax.inject.Inject
 
-/**
- * Serial/USB interface backend implementation.
- */
-class SerialInterfaceSpec @Inject constructor(
+/** Serial/USB interface backend implementation. */
+class SerialInterfaceSpec
+@Inject
+constructor(
     private val factory: SerialInterfaceFactory,
     private val usbManager: Lazy<UsbManager>,
     private val usbRepository: UsbRepository,
 ) : InterfaceSpec<SerialInterface> {
-    override fun createInterface(rest: String): SerialInterface {
-        return factory.create(rest)
-    }
+    override fun createInterface(rest: String): SerialInterface = factory.create(rest)
 
-    override fun addressValid(
-        rest: String
-    ): Boolean {
-        usbRepository.serialDevicesWithDrivers.value.filterValues {
-            usbManager.get().hasPermission(it.device)
-        }
+    override fun addressValid(rest: String): Boolean {
+        usbRepository.serialDevicesWithDrivers.value.filterValues { usbManager.get().hasPermission(it.device) }
         findSerial(rest)?.let { d ->
             return usbManager.get().hasPermission(d.device)
         }

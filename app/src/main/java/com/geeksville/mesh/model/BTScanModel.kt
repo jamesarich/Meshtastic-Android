@@ -27,9 +27,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.geeksville.mesh.repository.network.NetworkRepository
 import com.geeksville.mesh.repository.network.NetworkRepository.Companion.toAddressString
-import com.geeksville.mesh.repository.radio.ble.BluetoothConstants.BTM_SERVICE_UUID
 import com.geeksville.mesh.repository.radio.InterfaceId
 import com.geeksville.mesh.repository.radio.RadioInterfaceService
+import com.geeksville.mesh.repository.radio.ble.BluetoothConstants.BTM_SERVICE_UUID
 import com.geeksville.mesh.repository.usb.UsbRepository
 import com.geeksville.mesh.service.MeshService
 import com.hoho.android.usbserial.driver.UsbSerialDriver
@@ -43,12 +43,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNot
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.onEmpty
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -61,7 +59,6 @@ import no.nordicsemi.kotlin.ble.core.BondState
 import no.nordicsemi.kotlin.ble.core.Manager
 import no.nordicsemi.kotlin.ble.core.Phy
 import no.nordicsemi.kotlin.ble.core.PhyInUse
-import org.meshtastic.core.common.hasBluetoothPermission
 import org.meshtastic.core.datastore.RecentAddressesDataSource
 import org.meshtastic.core.datastore.model.RecentAddress
 import org.meshtastic.core.model.util.anonymize
@@ -219,11 +216,22 @@ constructor(
     init {
         serviceRepository.statusMessage.onEach { errorText.value = it }.launchIn(viewModelScope)
         Timber.d("BTScanModel created")
+        // Auto-stop scan if the manager state changes to a non-powered state while scanning
+        centralManager.state
+            .onEach { state ->
+                if (scanJob != null && state != Manager.State.POWERED_ON) {
+                    Timber.i("CentralManager state=$state; stopping active scan")
+                    stopScan()
+                }
+            }
+            .launchIn(viewModelScope)
     }
 
     override fun onCleared() {
         super.onCleared()
         Timber.d("BTScanModel cleared")
+        // Ensure any running scan is stopped when the ViewModel is destroyed
+        stopScan()
     }
 
     fun setErrorText(text: String) {
@@ -240,11 +248,6 @@ constructor(
             .stateInWhileSubscribed(initialValue = selectedAddressFlow.value ?: NO_DEVICE_SELECTED)
 
     val scanResult = MutableLiveData<MutableMap<String, DeviceListEntry>>(mutableMapOf())
-
-    fun clearScanResults() {
-        stopScan()
-        scanResult.value = mutableMapOf()
-    }
 
     fun stopScan() {
         if (scanJob != null) {
@@ -266,7 +269,7 @@ constructor(
         _spinner.value = true
         scanJob =
             centralManager
-                .scan { ServiceUuid(BTM_SERVICE_UUID.toKotlinUuid()) }
+                .scan(5000.milliseconds) { ServiceUuid(BTM_SERVICE_UUID.toKotlinUuid()) }
                 .onStart { _spinner.update { true } }
                 .distinctByPeripheral()
                 .map { it.peripheral }
@@ -285,8 +288,9 @@ constructor(
     }
 
     private fun changeDeviceAddress(address: String) {
+        val service = serviceRepository.meshService ?: return
         try {
-            serviceRepository.meshService?.let { service -> MeshService.changeDeviceAddress(context, service, address) }
+            MeshService.changeDeviceAddress(context, service, address)
         } catch (ex: RemoteException) {
             Timber.e(ex, "changeDeviceSelection failed, probably it is shutting down")
             // ignore the failure and the GUI won't be updating anyways
@@ -369,71 +373,6 @@ constructor(
     private val _spinner = MutableStateFlow(false)
     val spinner: StateFlow<Boolean>
         get() = _spinner.asStateFlow()
-
-    private fun observerPhy(peripheral: Peripheral, scope: CoroutineScope) {
-        peripheral.phy
-            .onEach { Timber.i("PHY changed to: $it") }
-            .onEmpty { Timber.w("PHY didn't change") }
-            .onCompletion { Timber.d("PHY collection completed") }
-            .launchIn(scope)
-    }
-
-    private fun observeConnectionParameters(peripheral: Peripheral, scope: CoroutineScope) {
-        peripheral.connectionParameters
-            .onEach { Timber.i("Connection parameters changed to: $it") }
-            .onEmpty { Timber.w("Connection parameters didn't change") }
-            .onCompletion { Timber.d("Connection parameters collection completed") }
-            .launchIn(scope)
-    }
-
-    @OptIn(ExperimentalUuidApi::class)
-    private fun observeServices(peripheral: Peripheral, scope: CoroutineScope) {
-        peripheral
-            .services()
-            .filterNotNull()
-            .onEach {
-                Timber.i("Services changed: $it")
-
-                // Read values of all characteristics.
-                it.forEach { remoteService ->
-                    remoteService.characteristics.forEach { remoteCharacteristic ->
-                        try {
-                            val value = remoteCharacteristic.read()
-                            Timber.i("Value of ${remoteCharacteristic.uuid}: 0x${value.toHexString()}")
-                        } catch (e: Exception) {
-                            Timber.e("Failed to read ${remoteCharacteristic.uuid}: ${e.message}")
-                        }
-                    }
-                }
-
-                it.forEach { remoteService ->
-                    remoteService.characteristics.forEach { remoteCharacteristic ->
-                        try {
-                            Timber.w("Subscribing to ${remoteCharacteristic.uuid}...")
-                            remoteCharacteristic
-                                .subscribe()
-                                .onEach { newValue ->
-                                    Timber.i(
-                                        "Value of ${remoteCharacteristic.uuid} changed: 0x${newValue.toHexString()}",
-                                    )
-                                }
-                                .onEmpty { Timber.w("No updates from ${remoteCharacteristic.uuid}") }
-                                .onCompletion {
-                                    Timber.d("Stopped observing updates from ${remoteCharacteristic.uuid}")
-                                }
-                                .launchIn(scope)
-                            Timber.i(
-                                "Notifications for ${remoteCharacteristic.uuid} are now ${if (remoteCharacteristic.isNotifying) "enabled" else "disabled"}",
-                            )
-                        } catch (e: Exception) {
-                            Timber.e("Failed to subscribe to ${remoteCharacteristic.uuid}: ${e.message}")
-                        }
-                    }
-                }
-            }
-            .onCompletion { Timber.d("Service collection completed") }
-            .launchIn(scope)
-    }
 
     private fun observePeripheralState(peripheral: Peripheral, scope: CoroutineScope) {
         peripheral.state

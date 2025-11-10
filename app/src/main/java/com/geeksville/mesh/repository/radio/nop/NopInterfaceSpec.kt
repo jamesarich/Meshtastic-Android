@@ -20,13 +20,7 @@ package com.geeksville.mesh.repository.radio.nop
 import com.geeksville.mesh.repository.radio.InterfaceSpec
 import javax.inject.Inject
 
-/**
- * No-op interface backend implementation.
- */
-class NopInterfaceSpec @Inject constructor(
-    private val factory: NopInterfaceFactory
-) : InterfaceSpec<NopInterface> {
-    override fun createInterface(rest: String): NopInterface {
-        return factory.create(rest)
-    }
+/** No-op interface backend implementation. */
+class NopInterfaceSpec @Inject constructor(private val factory: NopInterfaceFactory) : InterfaceSpec<NopInterface> {
+    override fun createInterface(rest: String): NopInterface = factory.create(rest)
 }

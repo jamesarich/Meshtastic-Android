@@ -33,6 +33,7 @@ detekt = "1.23.8"
 devtools-ksp = "2.3.2"
 markdownRenderer = "0.38.1"
 osmdroid-android = "6.1.20"
+nordic = "2.0.0-alpha10"
 protobuf = "4.33.0"
 
 
@@ -139,7 +140,8 @@ markdown-renderer-m3 = { module = "com.mikepenz:multiplatform-markdown-renderer-
 markdown-renderer-android = { module = "com.mikepenz:multiplatform-markdown-renderer-android", version.ref = "markdownRenderer" }
 material = { module = "com.google.android.material:material", version = "1.13.0" }
 mgrs = { module = "mil.nga:mgrs", version = "2.1.3" }
-nordic = { module = "no.nordicsemi.kotlin.ble:client-android", version = "2.0.0-alpha10" }
+nordic = { module = "no.nordicsemi.kotlin.ble:client-android", version.ref = "nordic" }
+nordicMock = { module = "no.nordicsemi.kotlin.ble:client-android-mock", version.ref = "nordic" }
 org-eclipse-paho-client-mqttv3 = { module = "org.eclipse.paho:org.eclipse.paho.client.mqttv3", version = "1.2.5" }
 osmbonuspack = { module = "com.github.MKergall:osmbonuspack", version = "6.9.0" }
 osmdroid-android = { module = "org.osmdroid:osmdroid-android", version.ref = "osmdroid-android" }

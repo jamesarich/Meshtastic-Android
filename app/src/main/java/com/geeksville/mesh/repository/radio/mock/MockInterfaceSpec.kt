@@ -19,15 +19,10 @@ package com.geeksville.mesh.repository.radio.mock
 
 import javax.inject.Inject
 
-/**
- * Mock interface backend implementation.
- */
-class MockInterfaceSpec @Inject constructor(
-    private val factory: MockInterfaceFactory
-) : com.geeksville.mesh.repository.radio.InterfaceSpec<MockInterface> {
-    override fun createInterface(rest: String): MockInterface {
-        return factory.create(rest)
-    }
+/** Mock interface backend implementation. */
+class MockInterfaceSpec @Inject constructor(private val factory: MockInterfaceFactory) :
+    com.geeksville.mesh.repository.radio.InterfaceSpec<MockInterface> {
+    override fun createInterface(rest: String): MockInterface = factory.create(rest)
 
     /** Return true if this address is still acceptable. For BLE that means, still bonded */
     override fun addressValid(rest: String): Boolean = true

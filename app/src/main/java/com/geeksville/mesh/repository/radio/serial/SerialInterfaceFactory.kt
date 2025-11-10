@@ -19,9 +19,7 @@ package com.geeksville.mesh.repository.radio.serial
 
 import dagger.assisted.AssistedFactory
 
-/**
- * Factory for creating `SerialInterface` instances.
- */
+/** Factory for creating `SerialInterface` instances. */
 @AssistedFactory
 interface SerialInterfaceFactory {
     fun create(rest: String): SerialInterface

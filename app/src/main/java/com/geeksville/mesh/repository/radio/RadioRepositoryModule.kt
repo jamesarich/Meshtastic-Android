@@ -17,6 +17,8 @@
 
 package com.geeksville.mesh.repository.radio
 
+import com.geeksville.mesh.repository.radio.ble.NordicBleInterfaceSpec
+import com.geeksville.mesh.repository.radio.mock.MockInterfaceSpec
 import com.geeksville.mesh.repository.radio.nop.NopInterfaceSpec
 import com.geeksville.mesh.repository.radio.serial.SerialInterfaceSpec
 import com.geeksville.mesh.repository.radio.tcp.TCPInterfaceSpec

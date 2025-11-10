@@ -19,9 +19,7 @@ package com.geeksville.mesh.repository.radio.tcp
 
 import dagger.assisted.AssistedFactory
 
-/**
- * Factory for creating `TCPInterface` instances.
- */
+/** Factory for creating `TCPInterface` instances. */
 @AssistedFactory
 interface TCPInterfaceFactory {
     fun create(rest: String): TCPInterface

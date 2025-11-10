@@ -28,7 +28,9 @@ import com.geeksville.mesh.service.RadioNotConnectedException
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -44,15 +46,19 @@ import no.nordicsemi.kotlin.ble.client.RemoteCharacteristic
 import no.nordicsemi.kotlin.ble.client.android.CentralManager
 import no.nordicsemi.kotlin.ble.client.android.ConnectionPriority
 import no.nordicsemi.kotlin.ble.client.android.Peripheral
+import no.nordicsemi.kotlin.ble.core.BondState
+import no.nordicsemi.kotlin.ble.core.ConnectionState
+import no.nordicsemi.kotlin.ble.core.Phy
 import no.nordicsemi.kotlin.ble.core.WriteType
 import timber.log.Timber
 import java.util.UUID
+import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.toKotlinUuid
 
 /**
- * A [com.geeksville.mesh.repository.radio.IRadioInterface] implementation for BLE devices using Nordic Kotlin BLE Library.
- * https://github.com/NordicSemiconductor/Kotlin-BLE-Library.
+ * A [com.geeksville.mesh.repository.radio.IRadioInterface] implementation for BLE devices using Nordic Kotlin BLE
+ * Library. https://github.com/NordicSemiconductor/Kotlin-BLE-Library.
  *
  * This class is responsible for connecting to and communicating with a Meshtastic device over BLE.
  *
@@ -72,9 +78,14 @@ constructor(
     private val localScope: CoroutineScope
         get() = service.serviceScope
 
+    // Single connection scope for the one allowed connection. Cancelled on disconnect/close.
+    private var connectionScope: CoroutineScope? = null
+
     private var toRadioCharacteristic: RemoteCharacteristic? = null
     private var fromNumCharacteristic: RemoteCharacteristic? = null
     private var fromRadioCharacteristic: RemoteCharacteristic? = null
+    private var fromNumSubscriptionJob: Job? = null
+    private var maxWriteLen: Int? = null
 
     private fun packetQueueFlow(): Flow<ByteArray> = channelFlow {
         while (isActive) {
@@ -110,7 +121,7 @@ constructor(
                     Timber.d("[$source] Drained $drainedCount packets from packet queue")
                 }
             }
-            .launchIn(localScope)
+            .let { flow -> connectionScope?.let { flow.launchIn(it) } }
     }
 
     private fun dispatchPacket(packet: ByteArray, source: String) {
@@ -138,12 +149,19 @@ constructor(
     }
 
     private suspend fun findPeripheral(): Peripheral =
-        centralManager.scan().mapNotNull { it.peripheral }.firstOrNull { it.address == address }
+        // Use a timed scan to avoid hanging indefinitely when the device isn't present.
+        centralManager.scan(5.seconds).mapNotNull { it.peripheral }.firstOrNull { it.address == address }
             ?: throw RadioNotConnectedException("Device not found")
 
     private fun connect() {
         localScope.launch {
             try {
+                // Create a fresh connection scope for this session.
+                connectionScope?.let {
+                    /* cancel any previous scope just in case */
+                    (it as? Job)?.cancel()
+                }
+                connectionScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
                 peripheral = findAndConnectPeripheral()
                 peripheral?.let {
                     observePeripheralChanges()
@@ -158,43 +176,69 @@ constructor(
 
     private suspend fun findAndConnectPeripheral(): Peripheral {
         val p = findPeripheral()
-        centralManager.connect(
-            peripheral = p,
-            options = CentralManager.ConnectionOptions.AutoConnect(
-                automaticallyRequestHighestValueLength = true
-            ),
-        )
-        p.requestConnectionPriority(ConnectionPriority.HIGH)
+        // If the device is bonded, prefer AutoConnect; otherwise use Direct with timeout and retry.
+        val isBonded = p.bondState.value == BondState.BONDED
+        val options =
+            if (isBonded) {
+                CentralManager.ConnectionOptions.AutoConnect()
+            } else {
+                CentralManager.ConnectionOptions.Direct(
+                    timeout = 3.seconds,
+                    retry = 2,
+                    retryDelay = 1.seconds,
+                    Phy.PHY_LE_2M,
+                )
+            }
+        centralManager.connect(peripheral = p, options = options)
+        // Connection priority request will be handled in initiateConnection after connected
         return p
     }
 
     private fun observePeripheralChanges() {
         peripheral?.let { p ->
-            p.phy.onEach { phy -> Timber.d("PHY changed to $phy") }.launchIn(localScope)
-            p.connectionParameters.onEach { Timber.d("Connection parameters changed to $it") }
-                .launchIn(localScope)
+            p.phy.onEach { phy -> Timber.d("PHY changed to $phy") }.let { f -> connectionScope?.let { f.launchIn(it) } }
+            p.connectionParameters
+                .onEach { Timber.d("Connection parameters changed to $it") }
+                .let { f -> connectionScope?.let { f.launchIn(it) } }
             p.state
                 .onEach { state ->
                     Timber.d("Peripheral state changed to $state")
+                    // When connected, perform additional initialization (request MTU, read RSSI/PHY, etc.)
+                    if (state is ConnectionState.Connected) {
+                        connectionScope?.launch {
+                            try {
+                                initiateConnection(p)
+                            } catch (ex: Exception) {
+                                Timber.w(ex, "Error during post-connect initialization")
+                            }
+                        }
+                    }
+
                     if (!state.isConnected) {
                         toRadioCharacteristic = null
+                        // cancel any active subscription to avoid leaks
+                        fromNumSubscriptionJob?.cancel()
+                        fromNumSubscriptionJob = null
+                        // Cancel all per-connection jobs
+                        (connectionScope as? Job)?.cancel()
+                        connectionScope = null
                         service.onDisconnect(false)
                     }
                 }
-                .launchIn(localScope)
+                .let { f -> connectionScope?.let { f.launchIn(it) } }
         }
-        centralManager.state.onEach { state -> Timber.d("CentralManager state changed to $state") }
-            .launchIn(localScope)
+        centralManager.state
+            .onEach { state -> Timber.d("CentralManager state changed to $state") }
+            .let { f -> connectionScope?.let { f.launchIn(it) } }
     }
 
     @OptIn(ExperimentalUuidApi::class)
     private fun discoverServicesAndSetupCharacteristics(peripheral: Peripheral) {
-        localScope.launch {
+        connectionScope?.launch {
             peripheral
                 .services(listOf(BTM_SERVICE_UUID.toKotlinUuid()))
                 .onEach { services ->
-                    val meshtasticService =
-                        services?.find { it.uuid == BTM_SERVICE_UUID.toKotlinUuid() }
+                    val meshtasticService = services?.find { it.uuid == BTM_SERVICE_UUID.toKotlinUuid() }
                     if (meshtasticService != null) {
                         toRadioCharacteristic =
                             meshtasticService.characteristics.find { it.uuid == BTM_TORADIO_CHARACTER.toKotlinUuid() }
@@ -216,7 +260,7 @@ constructor(
                         }
                     }
                 }
-                .launchIn(localScope)
+                .let { f -> connectionScope?.let { f.launchIn(it) } }
         }
     }
 
@@ -243,26 +287,27 @@ constructor(
 
     @OptIn(ExperimentalUuidApi::class)
     private suspend fun setupNotifications() {
-        fromNumCharacteristic
-            ?.subscribe()
-            ?.onEach { notifyBytes ->
-                try {
-                    Timber.d(
-                        "FROMNUM notify, ${notifyBytes.size} bytes: ${
-                            notifyBytes.joinToString(
-                                prefix = "[",
-                                postfix = "]",
-                            ) { b -> String.format("0x%02x", b) }
-                        } - reading packet queue",
-                    )
-                    drainPacketQueueAndDispatch("notify")
-                } catch (ex: Exception) {
-                    Timber.e(ex, "Error handling incoming FROMNUM notify")
+        val flow = fromNumCharacteristic?.subscribe()
+        fromNumSubscriptionJob =
+            flow
+                ?.onEach { notifyBytes ->
+                    try {
+                        Timber.d(
+                            "FROMNUM notify, ${notifyBytes.size} bytes: ${
+                                notifyBytes.joinToString(
+                                    prefix = "[",
+                                    postfix = "]",
+                                ) { b -> String.format("0x%02x", b) }
+                            } - reading packet queue",
+                        )
+                        drainPacketQueueAndDispatch("notify")
+                    } catch (ex: Exception) {
+                        Timber.e(ex, "Error handling incoming FROMNUM notify")
+                    }
                 }
-            }
-            ?.catch { e -> Timber.e(e, "Error in subscribe flow for fromNumCharacteristic") }
-            ?.onCompletion { cause -> Timber.d("fromNum subscribe flow completed, cause=$cause") }
-            ?.launchIn(scope = localScope)
+                ?.catch { e -> Timber.e(e, "Error in subscribe flow for fromNumCharacteristic") }
+                ?.onCompletion { cause -> Timber.d("fromNum subscribe flow completed, cause=$cause") }
+                ?.let { f -> connectionScope?.let { f.launchIn(scope = it) } }
         service.onConnect()
     }
 
@@ -279,7 +324,19 @@ constructor(
 
         localScope.launch {
             try {
-                characteristic.write(p, writeType = WriteType.WITHOUT_RESPONSE)
+                val limit = maxWriteLen ?: peripheral?.maximumWriteValueLength(WriteType.WITHOUT_RESPONSE)
+                maxWriteLen = limit
+                if (limit != null && limit > 0 && p.size > limit) {
+                    var offset = 0
+                    while (offset < p.size) {
+                        val end = minOf(offset + limit, p.size)
+                        val chunk = p.copyOfRange(offset, end)
+                        characteristic.write(chunk, writeType = WriteType.WITHOUT_RESPONSE)
+                        offset = end
+                    }
+                } else {
+                    characteristic.write(p, writeType = WriteType.WITHOUT_RESPONSE)
+                }
                 localScope.launch {
                     delay(POST_WRITE_DELAY_MS)
                     drainPacketQueueAndDispatch("post-write")
@@ -295,6 +352,9 @@ constructor(
         val p = peripheral
         localScope.launch {
             try {
+                // Cancel notifications first
+                fromNumSubscriptionJob?.cancel()
+                fromNumSubscriptionJob = null
                 p?.disconnect()
             } catch (ex: Exception) {
                 Timber.w(ex, "Error while closing NordicBleInterface")
@@ -304,6 +364,38 @@ constructor(
         fromNumCharacteristic = null
         fromRadioCharacteristic = null
         peripheral = null
+        // Cancel per-connection scope
+        (connectionScope as? Job)?.cancel()
+        connectionScope = null
+    }
+
+    // Added per Nordic sample: perform a few post-connect ops like MTU, RSSI, PHY and connection priority
+    private suspend fun initiateConnection(peripheral: Peripheral) {
+        try {
+            // Request highest value length (MTU)
+            peripheral.requestHighestValueLength()
+
+            // Check maximum write length for WITHOUT_RESPONSE
+            val writeType = WriteType.WITHOUT_RESPONSE
+            val length = peripheral.maximumWriteValueLength(writeType)
+            Timber.i("Maximum write length for $writeType: $length")
+            maxWriteLen = length
+
+            // Read RSSI
+            val rssi = peripheral.readRssi()
+            Timber.i("RSSI: $rssi dBm")
+
+            // Read PHY in use
+            val phyInUse = peripheral.readPhy()
+            Timber.i("PHY in use: $phyInUse")
+
+            // Request connection priority change
+            val newConnectionParameters = peripheral.requestConnectionPriority(ConnectionPriority.HIGH)
+            Timber.i("Connection priority changed to HIGH")
+            Timber.i("New connection parameters: $newConnectionParameters")
+        } catch (e: Exception) {
+            Timber.e(e, "Error during post-connect initialization")
+        }
     }
 }
 
@@ -313,4 +405,3 @@ object BluetoothConstants {
     val BTM_FROMNUM_CHARACTER: UUID = UUID.fromString("ed9da18c-a800-4f66-a670-aa7547e34453")
     val BTM_FROMRADIO_CHARACTER: UUID = UUID.fromString("2c55e69e-4993-11ed-b878-0242ac120002")
 }
-

@@ -257,6 +257,7 @@ dependencies {
     androidTestImplementation(libs.hilt.android.testing)
 
     testImplementation(libs.junit)
+    testImplementation(libs.nordicMock)
 
     dokkaPlugin(libs.dokka.android.documentation.plugin)
 }

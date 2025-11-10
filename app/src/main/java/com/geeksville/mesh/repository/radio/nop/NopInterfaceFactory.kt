@@ -19,9 +19,7 @@ package com.geeksville.mesh.repository.radio.nop
 
 import dagger.assisted.AssistedFactory
 
-/**
- * Factory for creating `NopInterface` instances.
- */
+/** Factory for creating `NopInterface` instances. */
 @AssistedFactory
 interface NopInterfaceFactory {
     fun create(rest: String): NopInterface

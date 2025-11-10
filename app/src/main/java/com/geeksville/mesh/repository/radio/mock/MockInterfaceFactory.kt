@@ -19,9 +19,7 @@ package com.geeksville.mesh.repository.radio.mock
 
 import dagger.assisted.AssistedFactory
 
-/**
- * Factory for creating `MockInterface` instances.
- */
+/** Factory for creating `MockInterface` instances. */
 @AssistedFactory
 interface MockInterfaceFactory {
     fun create(rest: String): MockInterface

@@ -17,16 +17,10 @@
 
 package com.geeksville.mesh.repository.radio.ble
 
-import no.nordicsemi.kotlin.ble.client.android.CentralManager
-import org.meshtastic.core.model.util.anonymize
-import timber.log.Timber
 import javax.inject.Inject
 
 /** Bluetooth backend implementation. */
-class NordicBleInterfaceSpec
-@Inject
-constructor(
-    private val factory: NordicBleInterfaceFactory,
-) : com.geeksville.mesh.repository.radio.InterfaceSpec<NordicBleInterface> {
+class NordicBleInterfaceSpec @Inject constructor(private val factory: NordicBleInterfaceFactory) :
+    com.geeksville.mesh.repository.radio.InterfaceSpec<NordicBleInterface> {
     override fun createInterface(rest: String): NordicBleInterface = factory.create(rest)
 }
