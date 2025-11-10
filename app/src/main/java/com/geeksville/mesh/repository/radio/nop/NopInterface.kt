@@ -22,7 +22,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
 class NopInterface @AssistedInject constructor(@Assisted val address: String) : IRadioInterface {
-    override fun handleSendToRadio(p: ByteArray) {}
+    override fun handleSendToRadio(p: ByteArray) = Unit // NOP implementation
 
-    override fun close() {}
+    override fun close() = Unit // NOP implementation
 }

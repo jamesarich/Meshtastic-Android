@@ -60,7 +60,8 @@ import org.meshtastic.core.strings.R as Res
  * permissions using `accompanist-permissions`.
  *
  * @param connectionState The current connection state of the MeshService.
- * @param btDevices List of discovered BLE devices.
+ * @param bondedDevices List of bonded BLE devices in range.
+ * @param availableDevices List of unbonded BLE devices in range.
  * @param selectedDevice The full address of the currently selected device.
  * @param scanModel The ViewModel responsible for Bluetooth scanning logic.
  */
@@ -151,6 +152,7 @@ fun BLEDevices(
                                 }
                             }
                         }
+                        // Optional: could show a brief message when a scan burst completes; omitted for monitor mode
                     }
 
                     if (bondedDevices.isEmpty() && availableDevices.isEmpty()) {

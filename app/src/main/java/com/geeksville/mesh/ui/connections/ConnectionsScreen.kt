@@ -86,7 +86,13 @@ fun String?.isIPAddress(): Boolean = if (Build.VERSION.SDK_INT < Build.VERSION_C
  * displays connection status.
  */
 @OptIn(ExperimentalPermissionsApi::class)
-@Suppress("CyclomaticComplexMethod", "LongMethod", "MagicNumber", "ModifierMissing", "ComposableParamOrder")
+@Suppress(
+    "CyclomaticComplexMethod",
+    "LongMethod",
+    "MagicNumber",
+    "ModifierMissing",
+    "ComposableParamOrder"
+)
 @Composable
 fun ConnectionsScreen(
     connectionsViewModel: ConnectionsViewModel = hiltViewModel(),
@@ -101,8 +107,7 @@ fun ConnectionsScreen(
     val scrollState = rememberScrollState()
     val scanStatusText by scanModel.errorText.observeAsState("")
     val connectionState by
-        connectionsViewModel.connectionState.collectAsStateWithLifecycle(ConnectionState.DISCONNECTED)
-    val scanning by scanModel.spinner.collectAsStateWithLifecycle(false)
+    connectionsViewModel.connectionState.collectAsStateWithLifecycle(ConnectionState.DISCONNECTED)
     val context = LocalContext.current
     val ourNode by connectionsViewModel.ourNodeInfo.collectAsStateWithLifecycle()
     val selectedDevice by scanModel.selectedNotNullFlow.collectAsStateWithLifecycle()
@@ -165,14 +170,17 @@ fun ConnectionsScreen(
         },
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize()) {
-            Box(modifier = Modifier.fillMaxSize().weight(1f)) {
+            Box(modifier = Modifier
+                .fillMaxSize()
+                .weight(1f)) {
                 Column(
                     modifier =
-                    Modifier.fillMaxSize()
-                        .verticalScroll(scrollState)
-                        .height(IntrinsicSize.Max)
-                        .padding(paddingValues)
-                        .padding(16.dp),
+                        Modifier
+                            .fillMaxSize()
+                            .verticalScroll(scrollState)
+                            .height(IntrinsicSize.Max)
+                            .padding(paddingValues)
+                            .padding(16.dp),
                 ) {
                     AnimatedVisibility(
                         visible = connectionState.isConnected(),
@@ -204,7 +212,9 @@ fun ConnectionsScreen(
                     }
 
                     var selectedDeviceType by remember { mutableStateOf(DeviceType.BLE) }
-                    LaunchedEffect(Unit) { DeviceType.fromAddress(selectedDevice)?.let { selectedDeviceType = it } }
+                    LaunchedEffect(Unit) {
+                        DeviceType.fromAddress(selectedDevice)?.let { selectedDeviceType = it }
+                    }
 
                     ConnectionsSegmentedBar(
                         selectedDeviceType = selectedDeviceType,
@@ -221,7 +231,7 @@ fun ConnectionsScreen(
                                 BLEDevices(
                                     connectionState = connectionState,
                                     bondedDevices = bondedBleDevices,
-                                    availableDevices = bleDevices,
+                                    availableDevices = bleDevices.filterNot { it.bonded },
                                     selectedDevice = selectedDevice,
                                     scanModel = scanModel,
                                     bluetoothEnabled = bluetoothState.enabled,
@@ -252,11 +262,11 @@ fun ConnectionsScreen(
 
                         // Warning Not Paired
                         val hasShownNotPairedWarning by
-                            connectionsViewModel.hasShownNotPairedWarning.collectAsStateWithLifecycle()
+                        connectionsViewModel.hasShownNotPairedWarning.collectAsStateWithLifecycle()
                         val showWarningNotPaired =
                             !connectionState.isConnected() &&
-                                !hasShownNotPairedWarning &&
-                                bondedBleDevices.none { it is DeviceListEntry.Ble && it.bonded }
+                                    !hasShownNotPairedWarning &&
+                                    bondedBleDevices.none { it is DeviceListEntry.Ble && it.bonded }
                         if (showWarningNotPaired) {
                             Text(
                                 text = stringResource(Res.string.warning_not_paired),
@@ -272,7 +282,9 @@ fun ConnectionsScreen(
                 }
             }
 
-            Box(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+            Box(modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)) {
                 Text(
                     text = scanStatusText.orEmpty(),
                     modifier = Modifier.fillMaxWidth(),
@@ -283,5 +295,3 @@ fun ConnectionsScreen(
         }
     }
 }
-
-private const val SCAN_PERIOD: Long = 10000 // 10 seconds

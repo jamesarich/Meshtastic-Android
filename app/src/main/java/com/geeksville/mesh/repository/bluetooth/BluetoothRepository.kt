@@ -23,7 +23,8 @@ import androidx.lifecycle.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import no.nordicsemi.kotlin.ble.client.android.CentralManager
 import no.nordicsemi.kotlin.ble.core.Manager
@@ -54,17 +55,18 @@ constructor(
     val state: StateFlow<BluetoothState> = _state.asStateFlow()
 
     init {
+        // Initial snapshot
         processLifecycle.coroutineScope.launch(dispatchers.default) { updateBluetoothState() }
-    }
-
-    fun refreshState() {
-        processLifecycle.coroutineScope.launch(dispatchers.default) { updateBluetoothState() }
+        // React to Bluetooth adapter state changes automatically
+        centralManager.state
+            .onEach { processLifecycle.coroutineScope.launch(dispatchers.default) { updateBluetoothState() } }
+            .launchIn(processLifecycle.coroutineScope)
     }
 
     internal suspend fun updateBluetoothState() {
         val hasPerms = application.hasBluetoothPermission()
         val enabled = centralManager.state.value == Manager.State.POWERED_ON
-        val bondedDevices = centralManager.getBondedPeripherals()
+        val bondedDevices = if (hasPerms) centralManager.getBondedPeripherals() else emptyList()
         val newState =
             BluetoothState(
                 hasPermissions = hasPerms,

@@ -42,7 +42,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.filterNot
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
@@ -53,12 +52,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import no.nordicsemi.kotlin.ble.client.android.CentralManager
 import no.nordicsemi.kotlin.ble.client.android.Peripheral
+import no.nordicsemi.kotlin.ble.client.android.exception.BondingFailedException
 import no.nordicsemi.kotlin.ble.client.android.preview.PreviewPeripheral
 import no.nordicsemi.kotlin.ble.client.distinctByPeripheral
 import no.nordicsemi.kotlin.ble.core.BondState
 import no.nordicsemi.kotlin.ble.core.Manager
 import no.nordicsemi.kotlin.ble.core.Phy
 import no.nordicsemi.kotlin.ble.core.PhyInUse
+import org.meshtastic.core.common.hasBluetoothPermission
 import org.meshtastic.core.datastore.RecentAddressesDataSource
 import org.meshtastic.core.datastore.model.RecentAddress
 import org.meshtastic.core.model.util.anonymize
@@ -67,6 +68,7 @@ import org.meshtastic.core.ui.viewmodel.stateInWhileSubscribed
 import timber.log.Timber
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.toKotlinUuid
 import org.meshtastic.core.strings.R as Res
@@ -113,7 +115,7 @@ sealed class DeviceListEntry(open val name: String, open val fullAddress: String
 
 @OptIn(ExperimentalUuidApi::class)
 @HiltViewModel
-@Suppress("LongParameterList", "TooManyFunctions")
+@Suppress("LongParameterList", "TooManyFunctions", "UnusedPrivateMember")
 class BTScanModel
 @Inject
 constructor(
@@ -130,14 +132,7 @@ constructor(
         get() = application.applicationContext
 
     private val _devices: MutableStateFlow<List<Peripheral>> =
-        MutableStateFlow(
-            listOf(
-                PreviewPeripheral(viewModelScope, phy = PhyInUse(txPhy = Phy.PHY_LE_1M, rxPhy = Phy.PHY_LE_2M)).apply {
-                    observePeripheralState(this, viewModelScope)
-                    observeBondState(this, viewModelScope)
-                },
-            ),
-        )
+        MutableStateFlow(centralManager.getBondedPeripherals())
     val devices: StateFlow<List<Peripheral>> = _devices.asStateFlow()
 
     val errorText = MutableLiveData<String?>(null)
@@ -151,6 +146,7 @@ constructor(
             .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     // Flow for discovered TCP devices, using recent addresses for potential name enrichment
+    @Suppress("UnusedPrivateMember")
     private val processedDiscoveredTcpDevicesFlow: StateFlow<List<DeviceListEntry.Tcp>> =
         combine(networkRepository.resolvedList, recentAddressesDataSource.recentAddresses) { tcpServices, recentList ->
             val recentMap = recentList.associateBy({ it.address }, { it.name })
@@ -247,7 +243,7 @@ constructor(
             .map { it ?: NO_DEVICE_SELECTED }
             .stateInWhileSubscribed(initialValue = selectedAddressFlow.value ?: NO_DEVICE_SELECTED)
 
-    val scanResult = MutableLiveData<MutableMap<String, DeviceListEntry>>(mutableMapOf())
+    // removed legacy scanResult state
 
     fun stopScan() {
         if (scanJob != null) {
@@ -264,26 +260,27 @@ constructor(
     }
 
     @SuppressLint("MissingPermission")
-    fun startScan() {
-        Timber.d("starting classic scan")
+    fun startScan(internal: Boolean = false) {
+        Timber.d("starting scan (internal=$internal)")
         _spinner.value = true
         scanJob =
-            centralManager
-                .scan(5000.milliseconds) { ServiceUuid(BTM_SERVICE_UUID.toKotlinUuid()) }
+            centralManager.scan(5.seconds){ ServiceUuid(BTM_SERVICE_UUID.toKotlinUuid()) }
                 .onStart { _spinner.update { true } }
                 .distinctByPeripheral()
                 .map { it.peripheral }
-                .filterNot { _devices.value.contains(it) }
-                .onEach { newPeripheral ->
-                    Timber.i("Found new peripheral: $newPeripheral")
-                    _devices.update { devices.value + newPeripheral }
-                }
-                .onEach { peripheral ->
-                    observePeripheralState(peripheral, viewModelScope)
-                    observeBondState(peripheral, viewModelScope)
+                .onEach { p ->
+                    if (_devices.value.none { it.address == p.address }) {
+                        Timber.i("Found new peripheral: $p")
+                        _devices.update { it + p }
+                        observePeripheralState(p, viewModelScope)
+                        observeBondState(p, viewModelScope)
+                    }
                 }
                 .catch { t -> Timber.e(t, "Error while scanning for peripherals") }
-                .onCompletion { _spinner.update { false } }
+                .onCompletion {
+                    _spinner.update { false }
+                    scanJob = null
+                }
                 .launchIn(viewModelScope)
     }
 
@@ -299,7 +296,13 @@ constructor(
 
     @SuppressLint("MissingPermission")
     private fun requestBonding(device: DeviceListEntry.Ble) {
-        viewModelScope.launch { device.peripheral.createBond() }
+        viewModelScope.launch {
+            try {
+                device.peripheral.createBond()
+            } catch (ex: BondingFailedException){
+                Timber.e(ex, "Bonding failed")
+            }
+        }
     }
 
     private fun requestPermission(it: DeviceListEntry.Usb) {

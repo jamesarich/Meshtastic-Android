@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
@@ -46,6 +47,7 @@ import no.nordicsemi.kotlin.ble.client.RemoteCharacteristic
 import no.nordicsemi.kotlin.ble.client.android.CentralManager
 import no.nordicsemi.kotlin.ble.client.android.ConnectionPriority
 import no.nordicsemi.kotlin.ble.client.android.Peripheral
+import no.nordicsemi.kotlin.ble.client.distinctByPeripheral
 import no.nordicsemi.kotlin.ble.core.BondState
 import no.nordicsemi.kotlin.ble.core.ConnectionState
 import no.nordicsemi.kotlin.ble.core.Phy
@@ -150,7 +152,7 @@ constructor(
 
     private suspend fun findPeripheral(): Peripheral =
         // Use a timed scan to avoid hanging indefinitely when the device isn't present.
-        centralManager.scan(5.seconds).mapNotNull { it.peripheral }.firstOrNull { it.address == address }
+        centralManager.scan(5.seconds).distinctByPeripheral().map{it.peripheral}.firstOrNull { it.address == address }
             ?: throw RadioNotConnectedException("Device not found")
 
     private fun connect() {
@@ -180,7 +182,9 @@ constructor(
         val isBonded = p.bondState.value == BondState.BONDED
         val options =
             if (isBonded) {
-                CentralManager.ConnectionOptions.AutoConnect()
+                CentralManager.ConnectionOptions.AutoConnect(
+                    automaticallyRequestHighestValueLength = true
+                )
             } else {
                 CentralManager.ConnectionOptions.Direct(
                     timeout = 3.seconds,
@@ -203,8 +207,9 @@ constructor(
             p.state
                 .onEach { state ->
                     Timber.d("Peripheral state changed to $state")
-                    // When connected, perform additional initialization (request MTU, read RSSI/PHY, etc.)
-                    if (state is ConnectionState.Connected) {
+                    if (!state.isConnected) {
+                        service.onDisconnect(false)
+                    } else if (state.isConnected) {
                         connectionScope?.launch {
                             try {
                                 initiateConnection(p)
@@ -212,17 +217,6 @@ constructor(
                                 Timber.w(ex, "Error during post-connect initialization")
                             }
                         }
-                    }
-
-                    if (!state.isConnected) {
-                        toRadioCharacteristic = null
-                        // cancel any active subscription to avoid leaks
-                        fromNumSubscriptionJob?.cancel()
-                        fromNumSubscriptionJob = null
-                        // Cancel all per-connection jobs
-                        (connectionScope as? Job)?.cancel()
-                        connectionScope = null
-                        service.onDisconnect(false)
                     }
                 }
                 .let { f -> connectionScope?.let { f.launchIn(it) } }
@@ -363,7 +357,6 @@ constructor(
         toRadioCharacteristic = null
         fromNumCharacteristic = null
         fromRadioCharacteristic = null
-        peripheral = null
         // Cancel per-connection scope
         (connectionScope as? Job)?.cancel()
         connectionScope = null
