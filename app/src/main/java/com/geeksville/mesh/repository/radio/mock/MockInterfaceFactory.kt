@@ -15,20 +15,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.geeksville.mesh.repository.radio
+package com.geeksville.mesh.repository.radio.mock
 
-import javax.inject.Inject
+import dagger.assisted.AssistedFactory
 
 /**
- * Mock interface backend implementation.
+ * Factory for creating `MockInterface` instances.
  */
-class MockInterfaceSpec @Inject constructor(
-    private val factory: MockInterfaceFactory
-) : InterfaceSpec<MockInterface> {
-    override fun createInterface(rest: String): MockInterface {
-        return factory.create(rest)
-    }
-
-    /** Return true if this address is still acceptable. For BLE that means, still bonded */
-    override fun addressValid(rest: String): Boolean = true
+@AssistedFactory
+interface MockInterfaceFactory {
+    fun create(rest: String): MockInterface
 }

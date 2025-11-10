@@ -15,13 +15,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.geeksville.mesh.repository.radio
+package com.geeksville.mesh.repository.radio.ble
 
 import android.annotation.SuppressLint
-import com.geeksville.mesh.repository.radio.BluetoothConstants.BTM_FROMNUM_CHARACTER
-import com.geeksville.mesh.repository.radio.BluetoothConstants.BTM_FROMRADIO_CHARACTER
-import com.geeksville.mesh.repository.radio.BluetoothConstants.BTM_SERVICE_UUID
-import com.geeksville.mesh.repository.radio.BluetoothConstants.BTM_TORADIO_CHARACTER
+import com.geeksville.mesh.repository.radio.IRadioInterface
+import com.geeksville.mesh.repository.radio.RadioInterfaceService
+import com.geeksville.mesh.repository.radio.ble.BluetoothConstants.BTM_FROMNUM_CHARACTER
+import com.geeksville.mesh.repository.radio.ble.BluetoothConstants.BTM_FROMRADIO_CHARACTER
+import com.geeksville.mesh.repository.radio.ble.BluetoothConstants.BTM_SERVICE_UUID
+import com.geeksville.mesh.repository.radio.ble.BluetoothConstants.BTM_TORADIO_CHARACTER
 import com.geeksville.mesh.service.RadioNotConnectedException
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -49,12 +51,12 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.toKotlinUuid
 
 /**
- * A [IRadioInterface] implementation for BLE devices using Nordic Kotlin BLE Library.
+ * A [com.geeksville.mesh.repository.radio.IRadioInterface] implementation for BLE devices using Nordic Kotlin BLE Library.
  * https://github.com/NordicSemiconductor/Kotlin-BLE-Library.
  *
  * This class is responsible for connecting to and communicating with a Meshtastic device over BLE.
  *
- * @param service The [RadioInterfaceService] to use for handling radio events.
+ * @param service The [com.geeksville.mesh.repository.radio.RadioInterfaceService] to use for handling radio events.
  * @param address The BLE address of the device to connect to.
  */
 @SuppressLint("MissingPermission")

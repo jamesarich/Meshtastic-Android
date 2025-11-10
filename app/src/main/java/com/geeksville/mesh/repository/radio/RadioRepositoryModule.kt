@@ -17,6 +17,9 @@
 
 package com.geeksville.mesh.repository.radio
 
+import com.geeksville.mesh.repository.radio.nop.NopInterfaceSpec
+import com.geeksville.mesh.repository.radio.serial.SerialInterfaceSpec
+import com.geeksville.mesh.repository.radio.tcp.TCPInterfaceSpec
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

@@ -15,12 +15,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.geeksville.mesh.repository.radio
+package com.geeksville.mesh.repository.radio.nop
 
 import dagger.assisted.AssistedFactory
 
-/** Factory for creating `NordicBleInterface` instances. */
+/**
+ * Factory for creating `NopInterface` instances.
+ */
 @AssistedFactory
-interface NordicBleInterfaceFactory {
-    fun create(rest: String): NordicBleInterface
+interface NopInterfaceFactory {
+    fun create(rest: String): NopInterface
 }

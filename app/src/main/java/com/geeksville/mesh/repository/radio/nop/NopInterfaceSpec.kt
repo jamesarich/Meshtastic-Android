@@ -15,14 +15,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.geeksville.mesh.repository.radio
+package com.geeksville.mesh.repository.radio.nop
 
-import dagger.assisted.AssistedFactory
+import com.geeksville.mesh.repository.radio.InterfaceSpec
+import javax.inject.Inject
 
 /**
- * Factory for creating `TCPInterface` instances.
+ * No-op interface backend implementation.
  */
-@AssistedFactory
-interface TCPInterfaceFactory {
-    fun create(rest: String): TCPInterface
+class NopInterfaceSpec @Inject constructor(
+    private val factory: NopInterfaceFactory
+) : InterfaceSpec<NopInterface> {
+    override fun createInterface(rest: String): NopInterface {
+        return factory.create(rest)
+    }
 }

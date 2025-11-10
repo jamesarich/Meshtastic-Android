@@ -27,6 +27,10 @@ import com.geeksville.mesh.android.BuildUtils
 import com.geeksville.mesh.concurrent.handledLaunch
 import com.geeksville.mesh.repository.bluetooth.BluetoothRepository
 import com.geeksville.mesh.repository.network.NetworkRepository
+import com.geeksville.mesh.repository.radio.ble.NordicBleInterface
+import com.geeksville.mesh.repository.radio.nop.NopInterface
+import com.geeksville.mesh.repository.radio.serial.SerialInterface
+import com.geeksville.mesh.repository.radio.tcp.TCPInterface
 import com.geeksville.mesh.util.ignoreException
 import com.geeksville.mesh.util.toRemoteExceptions
 import kotlinx.coroutines.CoroutineScope

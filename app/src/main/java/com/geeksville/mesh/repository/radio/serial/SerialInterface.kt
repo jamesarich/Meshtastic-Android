@@ -15,8 +15,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.geeksville.mesh.repository.radio
+package com.geeksville.mesh.repository.radio.serial
 
+import com.geeksville.mesh.repository.radio.RadioInterfaceService
+import com.geeksville.mesh.repository.radio.StreamInterface
 import com.geeksville.mesh.repository.usb.SerialConnection
 import com.geeksville.mesh.repository.usb.SerialConnectionListener
 import com.geeksville.mesh.repository.usb.UsbRepository

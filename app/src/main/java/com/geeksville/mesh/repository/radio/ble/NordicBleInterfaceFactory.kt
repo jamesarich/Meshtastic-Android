@@ -15,14 +15,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.geeksville.mesh.repository.radio
+package com.geeksville.mesh.repository.radio.ble
 
 import dagger.assisted.AssistedFactory
 
-/**
- * Factory for creating `MockInterface` instances.
- */
+/** Factory for creating `NordicBleInterface` instances. */
 @AssistedFactory
-interface MockInterfaceFactory {
-    fun create(rest: String): MockInterface
+interface NordicBleInterfaceFactory {
+    fun create(rest: String): NordicBleInterface
 }

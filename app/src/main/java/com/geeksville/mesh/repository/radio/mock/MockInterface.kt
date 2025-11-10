@@ -15,10 +15,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.geeksville.mesh.repository.radio
+package com.geeksville.mesh.repository.radio.mock
 
 import com.geeksville.mesh.concurrent.handledLaunch
 import com.geeksville.mesh.model.getInitials
+import com.geeksville.mesh.repository.radio.IRadioInterface
+import com.geeksville.mesh.repository.radio.RadioInterfaceService
 import com.google.protobuf.ByteString
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject

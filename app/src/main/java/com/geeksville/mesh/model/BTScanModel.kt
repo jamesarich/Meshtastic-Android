@@ -27,7 +27,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.geeksville.mesh.repository.network.NetworkRepository
 import com.geeksville.mesh.repository.network.NetworkRepository.Companion.toAddressString
-import com.geeksville.mesh.repository.radio.BluetoothConstants.BTM_SERVICE_UUID
+import com.geeksville.mesh.repository.radio.ble.BluetoothConstants.BTM_SERVICE_UUID
 import com.geeksville.mesh.repository.radio.InterfaceId
 import com.geeksville.mesh.repository.radio.RadioInterfaceService
 import com.geeksville.mesh.repository.usb.UsbRepository

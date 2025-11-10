@@ -15,14 +15,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.geeksville.mesh.repository.radio
+package com.geeksville.mesh.repository.radio.tcp
 
 import dagger.assisted.AssistedFactory
 
 /**
- * Factory for creating `NopInterface` instances.
+ * Factory for creating `TCPInterface` instances.
  */
 @AssistedFactory
-interface NopInterfaceFactory {
-    fun create(rest: String): NopInterface
+interface TCPInterfaceFactory {
+    fun create(rest: String): TCPInterface
 }

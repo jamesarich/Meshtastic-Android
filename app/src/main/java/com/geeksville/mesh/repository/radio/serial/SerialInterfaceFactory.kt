@@ -15,17 +15,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.geeksville.mesh.repository.radio
+package com.geeksville.mesh.repository.radio.serial
 
-import javax.inject.Inject
+import dagger.assisted.AssistedFactory
 
 /**
- * TCP interface backend implementation.
+ * Factory for creating `SerialInterface` instances.
  */
-class TCPInterfaceSpec @Inject constructor(
-    private val factory: TCPInterfaceFactory
-) : InterfaceSpec<TCPInterface> {
-    override fun createInterface(rest: String): TCPInterface {
-        return factory.create(rest)
-    }
+@AssistedFactory
+interface SerialInterfaceFactory {
+    fun create(rest: String): SerialInterface
 }

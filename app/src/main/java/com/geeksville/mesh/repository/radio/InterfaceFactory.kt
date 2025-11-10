@@ -17,6 +17,7 @@
 
 package com.geeksville.mesh.repository.radio
 
+import com.geeksville.mesh.repository.radio.nop.NopInterfaceFactory
 import javax.inject.Inject
 import javax.inject.Provider
 

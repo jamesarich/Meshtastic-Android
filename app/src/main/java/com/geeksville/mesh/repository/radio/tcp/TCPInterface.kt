@@ -15,10 +15,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.geeksville.mesh.repository.radio
+package com.geeksville.mesh.repository.radio.tcp
 
 import com.geeksville.mesh.concurrent.handledLaunch
 import com.geeksville.mesh.repository.network.NetworkRepository
+import com.geeksville.mesh.repository.radio.RadioInterfaceService
+import com.geeksville.mesh.repository.radio.StreamInterface
 import com.geeksville.mesh.util.Exceptions
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject

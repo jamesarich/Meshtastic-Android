@@ -15,18 +15,20 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.geeksville.mesh.repository.radio
+package com.geeksville.mesh.repository.radio.mock
 
-import no.nordicsemi.kotlin.ble.client.android.CentralManager
-import org.meshtastic.core.model.util.anonymize
-import timber.log.Timber
 import javax.inject.Inject
 
-/** Bluetooth backend implementation. */
-class NordicBleInterfaceSpec
-@Inject
-constructor(
-    private val factory: NordicBleInterfaceFactory,
-) : InterfaceSpec<NordicBleInterface> {
-    override fun createInterface(rest: String): NordicBleInterface = factory.create(rest)
+/**
+ * Mock interface backend implementation.
+ */
+class MockInterfaceSpec @Inject constructor(
+    private val factory: MockInterfaceFactory
+) : com.geeksville.mesh.repository.radio.InterfaceSpec<MockInterface> {
+    override fun createInterface(rest: String): MockInterface {
+        return factory.create(rest)
+    }
+
+    /** Return true if this address is still acceptable. For BLE that means, still bonded */
+    override fun addressValid(rest: String): Boolean = true
 }

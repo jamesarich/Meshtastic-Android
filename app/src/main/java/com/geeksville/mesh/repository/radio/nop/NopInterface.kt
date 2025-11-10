@@ -15,8 +15,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.geeksville.mesh.repository.radio
+package com.geeksville.mesh.repository.radio.nop
 
+import com.geeksville.mesh.repository.radio.IRadioInterface
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 

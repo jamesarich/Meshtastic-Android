@@ -15,17 +15,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.geeksville.mesh.repository.radio
+package com.geeksville.mesh.repository.radio.ble
 
+import no.nordicsemi.kotlin.ble.client.android.CentralManager
+import org.meshtastic.core.model.util.anonymize
+import timber.log.Timber
 import javax.inject.Inject
 
-/**
- * No-op interface backend implementation.
- */
-class NopInterfaceSpec @Inject constructor(
-    private val factory: NopInterfaceFactory
-) : InterfaceSpec<NopInterface> {
-    override fun createInterface(rest: String): NopInterface {
-        return factory.create(rest)
-    }
+/** Bluetooth backend implementation. */
+class NordicBleInterfaceSpec
+@Inject
+constructor(
+    private val factory: NordicBleInterfaceFactory,
+) : com.geeksville.mesh.repository.radio.InterfaceSpec<NordicBleInterface> {
+    override fun createInterface(rest: String): NordicBleInterface = factory.create(rest)
 }

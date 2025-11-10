@@ -15,11 +15,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.geeksville.mesh.repository.radio
+package com.geeksville.mesh.repository.radio.serial
 
 import android.hardware.usb.UsbManager
+import com.geeksville.mesh.repository.radio.InterfaceSpec
 import com.geeksville.mesh.repository.usb.UsbRepository
 import com.hoho.android.usbserial.driver.UsbSerialDriver
+import dagger.Lazy
 import javax.inject.Inject
 
 /**
@@ -27,7 +29,7 @@ import javax.inject.Inject
  */
 class SerialInterfaceSpec @Inject constructor(
     private val factory: SerialInterfaceFactory,
-    private val usbManager: dagger.Lazy<UsbManager>,
+    private val usbManager: Lazy<UsbManager>,
     private val usbRepository: UsbRepository,
 ) : InterfaceSpec<SerialInterface> {
     override fun createInterface(rest: String): SerialInterface {
