@@ -19,6 +19,7 @@ package com.geeksville.mesh.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CellTower
+import androidx.compose.material.icons.filled.CompassCalibration
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Memory
@@ -55,9 +56,11 @@ import org.meshtastic.core.strings.position_log
 import org.meshtastic.core.strings.power
 import org.meshtastic.core.strings.signal
 import org.meshtastic.core.strings.traceroute
+import org.meshtastic.core.strings.compass
 import org.meshtastic.core.ui.component.ScrollToTopEvent
 import org.meshtastic.feature.map.node.NodeMapScreen
 import org.meshtastic.feature.map.node.NodeMapViewModel
+import org.meshtastic.feature.node.component.CompassView
 import org.meshtastic.feature.node.detail.NodeDetailScreen
 import org.meshtastic.feature.node.list.NodeListScreen
 import org.meshtastic.feature.node.metrics.DeviceMetricsScreen
@@ -152,6 +155,12 @@ fun NavGraphBuilder.nodeDetailGraph(navController: NavHostController) {
                         entry,
                         entry.screenComposable,
                     )
+                is NodeDetailRoutes.CompassView ->
+                    addNodeDetailScreenComposable<NodeDetailRoutes.CompassView>(
+                        navController,
+                        entry,
+                        entry.screenComposable,
+                    )
                 is NodeDetailRoutes.TracerouteLog ->
                     addNodeDetailScreenComposable<NodeDetailRoutes.TracerouteLog>(
                         navController,
@@ -240,6 +249,12 @@ enum class NodeDetailRoute(
         NodeDetailRoutes.SignalMetrics,
         Icons.Default.CellTower,
         { metricsVM, onNavigateUp -> SignalMetricsScreen(metricsVM, onNavigateUp) },
+    ),
+    COMPASS(
+        Res.string.compass,
+        NodeDetailRoutes.CompassView,
+        Icons.Default.CompassCalibration,
+        {metricsVM, onNavigateUp -> CompassView() },
     ),
     TRACEROUTE(
         Res.string.traceroute,

@@ -955,4 +955,5 @@
     <string name="relayed_by">Relayed by: %1$s</string>
     <string name="preserve_favorites">Preserve Favorites?</string>
     <string name="usb_devices">USB Devices</string>
+    <string name="compass">Compass</string>
 </resources>

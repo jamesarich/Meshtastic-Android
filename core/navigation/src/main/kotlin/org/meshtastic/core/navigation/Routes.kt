@@ -74,6 +74,8 @@ object NodeDetailRoutes {
 
     @Serializable data object SignalMetrics : Route
 
+    @Serializable data object CompassView : Route
+
     @Serializable data object PowerMetrics : Route
 
     @Serializable data object TracerouteLog : Route
