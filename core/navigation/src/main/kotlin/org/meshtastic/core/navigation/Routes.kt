@@ -60,11 +60,11 @@ object MapRoutes {
 
 sealed interface NodesRoute : Route
 object NodesRoutes {
-    @Serializable data object NodesGraph : Graph, NodesRoute
+    @Serializable data class NodesGraph(val startNodeId: Int? = null, val target: String? = null) : Graph, NodesRoute
 
     @Serializable data object Nodes : NodesRoute
 
-    @Serializable data class NodeDetailGraph(val destNum: Int? = null) : Graph, NodesRoute
+    @Serializable data class NodeDetailGraph(val destNum: Int? = null, val target: String? = null) : Graph, NodesRoute
 
     @Serializable data class NodeDetail(val destNum: Int? = null) : NodesRoute
 }

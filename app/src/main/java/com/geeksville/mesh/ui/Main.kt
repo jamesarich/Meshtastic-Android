@@ -51,7 +51,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
+import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
@@ -59,7 +62,6 @@ import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -149,19 +151,27 @@ import timber.log.Timber
 
 enum class TopLevelDestination(val label: StringResource, val icon: ImageVector, val key: Any) {
     Conversations(Res.string.conversations, MeshtasticIcons.Conversations, ContactsRoutes.ContactsGraph),
-    Nodes(Res.string.nodes, MeshtasticIcons.Nodes, NodesRoutes.NodesGraph),
+    Nodes(Res.string.nodes, MeshtasticIcons.Nodes, NodesRoutes.NodesGraph()),
     Map(Res.string.map, MeshtasticIcons.Map, MapRoutes.Map),
     Settings(Res.string.bottom_nav_settings, MeshtasticIcons.Settings, SettingsRoutes.SettingsGraph()),
     Connections(Res.string.connections, Icons.Rounded.Wifi, ConnectionsRoutes.ConnectionsGraph),
     ;
+
+    fun matches(otherKey: Any): Boolean {
+        return when (this) {
+            Nodes -> otherKey is NodesRoutes.NodesGraph
+            Settings -> otherKey is SettingsRoutes.SettingsGraph
+            else -> key == otherKey
+        }
+    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class, ExperimentalMaterial3AdaptiveApi::class)
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: BTScanModel = hiltViewModel()) {
-    val mainBackStack = rememberNavBackStack<Any>(NodesRoutes.NodesGraph)
-    val nodesBackStack = rememberNavBackStack<Any>(NodesRoutes.Nodes)
+    val mainBackStack = rememberNavBackStack<Any>(NodesRoutes.NodesGraph())
+    val nodesNavigator = rememberListDetailPaneScaffoldNavigator<NodesRoutes.NodeDetailGraph>()
     val contactsBackStack = rememberNavBackStack<Any>(ContactsRoutes.Contacts)
     val settingsBackStack = rememberNavBackStack<Any>(SettingsRoutes.Settings())
     val connectionsBackStack = rememberNavBackStack<Any>(ConnectionsRoutes.Connections)
@@ -198,16 +208,15 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: BTScanMode
         val data = intent?.data
         if (data != null && data.toString().startsWith(DEEP_LINK_BASE_URI)) {
             val path = data.toString().removePrefix(DEEP_LINK_BASE_URI)
+            val parts = path.removePrefix("/").split("/")
             when {
-                path.startsWith("/node") -> {
-                    // /node or /node/{id}
-                    val idStr = path.removePrefix("/node").removePrefix("/")
-                    val id = idStr.toIntOrNull()
+                parts.isNotEmpty() && parts[0] == "node" -> {
+                    // /node/{id} or /node/{id}/{target}
+                    val idStr = parts.getOrNull(1)
+                    val id = idStr?.toIntOrNull()
+                    val target = parts.getOrNull(2)
                     mainBackStack.clear()
-                    mainBackStack.add(NodesRoutes.NodesGraph)
-                    if (id != null) {
-                         nodesBackStack.add(NodesRoutes.NodeDetailGraph(id))
-                    }
+                    mainBackStack.add(NodesRoutes.NodesGraph(id, target))
                 }
                 path.startsWith("/settings") -> {
                     mainBackStack.clear()
@@ -217,7 +226,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: BTScanMode
                     mainBackStack.clear()
                     mainBackStack.add(ChannelsRoutes.ChannelsGraph)
                 }
-                 path.startsWith("/contacts") -> {
+                path.startsWith("/contacts") -> {
                     mainBackStack.clear()
                     mainBackStack.add(ContactsRoutes.ContactsGraph)
                 }
@@ -249,11 +258,13 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: BTScanMode
     val onNavigateExternal: (Any) -> Unit = { route ->
         when (route) {
             is NodesRoutes.NodeDetailGraph -> {
-                if (mainBackStack.last() != NodesRoutes.NodesGraph) {
+                if (mainBackStack.last() !is NodesRoutes.NodesGraph) {
                     mainBackStack.clear()
-                    mainBackStack.add(NodesRoutes.NodesGraph)
+                    mainBackStack.add(NodesRoutes.NodesGraph(route.destNum, route.target))
+                } else {
+                    // Already in NodesGraph, update current entry to trigger flow recomposition
+                    mainBackStack[mainBackStack.lastIndex] = NodesRoutes.NodesGraph(route.destNum, route.target)
                 }
-                nodesBackStack.add(route)
             }
             is ContactsRoutes.Messages -> {
                 if (mainBackStack.last() != ContactsRoutes.ContactsGraph) {
@@ -308,7 +319,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: BTScanMode
     }
     val navSuiteType = NavigationSuiteScaffoldDefaults.navigationSuiteType(currentWindowAdaptiveInfo())
     val currentKey = mainBackStack.last()
-    val topLevelDestination = TopLevelDestination.entries.find { it.key == currentKey }
+    val topLevelDestination = TopLevelDestination.entries.find { it.matches(currentKey) }
 
     // State for determining the connection type icon to display
     val selectedDevice by scanModel.selectedNotNullFlow.collectAsStateWithLifecycle()
@@ -347,7 +358,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: BTScanMode
         modifier = Modifier.fillMaxSize(),
         navigationSuiteItems = {
             TopLevelDestination.entries.forEach { destination ->
-                val isSelected = destination.key == currentKey
+                val isSelected = destination.matches(currentKey)
                 val isConnectionsRoute = destination == TopLevelDestination.Connections
                 item(
                     icon = {
@@ -444,12 +455,11 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: BTScanMode
                         }
                     },
                     onClick = {
-                        val isRepress = destination.key == currentKey
+                        val isRepress = destination.matches(currentKey)
                         if (isRepress) {
                             when (destination) {
                                 TopLevelDestination.Nodes -> {
-                                    nodesBackStack.clear()
-                                    nodesBackStack.add(NodesRoutes.Nodes)
+                                    nodesNavigator.navigateTo(ListDetailPaneScaffoldRole.List, null)
                                     uIViewModel.emitScrollToTopEvent(ScrollToTopEvent.NodesTabPressed)
                                 }
                                 TopLevelDestination.Conversations -> {
@@ -489,7 +499,8 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: BTScanMode
                 }
                 entry<NodesRoutes.NodesGraph> {
                     NodesFlow(
-                        backStack = nodesBackStack,
+                        args = it,
+                        navigator = nodesNavigator,
                         onNavigateExternal = onNavigateExternal,
                         onBack = { mainBackStack.removeLast() },
                         scrollToTopEvents = uIViewModel.scrollToTopEventFlow,

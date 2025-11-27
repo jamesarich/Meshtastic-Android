@@ -17,7 +17,14 @@
 
 package com.geeksville.mesh.navigation
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.layout.AnimatedPane
+import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
+import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
+import androidx.compose.material3.adaptive.navigation.ThreePaneScaffoldNavigator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.core.os.bundleOf
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.DEFAULT_ARGS_KEY
@@ -48,38 +55,58 @@ import org.meshtastic.feature.node.metrics.PowerMetricsScreen
 import org.meshtastic.feature.node.metrics.SignalMetricsScreen
 import org.meshtastic.feature.node.metrics.TracerouteLogScreen
 
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 fun NodesFlow(
-    backStack: MutableList<Any>,
+    args: NodesRoutes.NodesGraph,
+    navigator: ThreePaneScaffoldNavigator<NodesRoutes.NodeDetailGraph>,
     onNavigateExternal: (Any) -> Unit,
     onBack: () -> Unit,
     scrollToTopEvents: Flow<ScrollToTopEvent>
 ) {
-    NavDisplay(
-        backStack = backStack,
-        onBack = {
-            if (backStack.size > 1) {
-                backStack.removeLast()
-            } else {
-                onBack()
-            }
-        },
-        entryProvider = entryProvider {
-            entry<NodesRoutes.Nodes> {
+    LaunchedEffect(args.startNodeId, args.target) {
+        if (args.startNodeId != null) {
+            navigator.navigateTo(
+                ListDetailPaneScaffoldRole.Detail,
+                NodesRoutes.NodeDetailGraph(args.startNodeId, args.target)
+            )
+        }
+    }
+
+    BackHandler(enabled = true) {
+        if (navigator.canNavigateBack()) {
+            navigator.navigateBack()
+        } else {
+            onBack()
+        }
+    }
+
+    ListDetailPaneScaffold(
+        directive = navigator.scaffoldDirective,
+        value = navigator.scaffoldValue,
+        listPane = {
+            AnimatedPane {
                 NodeListScreen(
-                    navigateToNodeDetails = {
-                        backStack.add(NodesRoutes.NodeDetailGraph(it))
+                    navigateToNodeDetails = { nodeId ->
+                        navigator.navigateTo(
+                            ListDetailPaneScaffoldRole.Detail,
+                            NodesRoutes.NodeDetailGraph(nodeId)
+                        )
                     },
                     scrollToTopEvents = scrollToTopEvents,
                 )
             }
-
-            entry<NodesRoutes.NodeDetailGraph> { args ->
-                NodeDetailFlow(
-                    args = args,
-                    onNavigateExternal = onNavigateExternal,
-                    onBack = { backStack.removeLast() }
-                )
+        },
+        detailPane = {
+            AnimatedPane {
+                val selection = navigator.currentDestination?.content
+                if (selection != null) {
+                    NodeDetailFlow(
+                        args = selection,
+                        onNavigateExternal = onNavigateExternal,
+                        onBack = { navigator.navigateBack() }
+                    )
+                }
             }
         }
     )
@@ -97,11 +124,32 @@ fun NodeDetailFlow(
     val extras = MutableCreationExtras(defaultExtras)
     extras[DEFAULT_ARGS_KEY] = bundleOf("destNum" to args.destNum)
 
-    val metricsViewModel: MetricsViewModel = hiltViewModel(extras = extras)
-    // Scope NodeMapViewModel to this flow as well to match original behavior
-    val nodeMapViewModel: NodeMapViewModel = hiltViewModel(extras = extras)
+    // Use unique key based on destNum to ensure correct scoping and args
+    val vmKey = args.destNum.toString()
+    val metricsViewModel: MetricsViewModel = hiltViewModel(key = vmKey, extras = extras)
+    val nodeMapViewModel: NodeMapViewModel = hiltViewModel(key = vmKey, extras = extras)
 
     val backStack = rememberNavBackStack(NodesRoutes.NodeDetail(args.destNum))
+
+    LaunchedEffect(args.target) {
+        args.target?.let { target ->
+            val route = when (target) {
+                "node_map", "map" -> NodeDetailRoutes.NodeMap
+                "device" -> NodeDetailRoutes.DeviceMetrics
+                "position" -> NodeDetailRoutes.PositionLog
+                "environment" -> NodeDetailRoutes.EnvironmentMetrics
+                "signal" -> NodeDetailRoutes.SignalMetrics
+                "power" -> NodeDetailRoutes.PowerMetrics
+                "traceroute" -> NodeDetailRoutes.TracerouteLog
+                "host" -> NodeDetailRoutes.HostMetricsLog
+                "pax" -> NodeDetailRoutes.PaxMetrics
+                else -> null
+            }
+            if (route != null) {
+                backStack.add(route)
+            }
+        }
+    }
 
     NavDisplay(
         backStack = backStack,
