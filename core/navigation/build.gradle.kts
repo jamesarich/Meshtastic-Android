@@ -23,4 +23,6 @@ plugins {
 
 android { namespace = "org.meshtastic.core.navigation" }
 
-dependencies {}
+dependencies {
+    implementation(libs.androidx.navigation3.runtime)
+}

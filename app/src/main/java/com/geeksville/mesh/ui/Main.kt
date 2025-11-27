@@ -20,6 +20,7 @@
 package com.geeksville.mesh.ui
 
 import android.Manifest
+import android.app.Activity
 import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -73,27 +74,22 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavDestination
-import androidx.navigation.NavDestination.Companion.hasRoute
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.ui.NavDisplay
 import com.geeksville.mesh.BuildConfig
 import com.geeksville.mesh.model.BTScanModel
 import com.geeksville.mesh.model.UIViewModel
-import com.geeksville.mesh.navigation.channelsGraph
-import com.geeksville.mesh.navigation.connectionsGraph
-import com.geeksville.mesh.navigation.contactsGraph
-import com.geeksville.mesh.navigation.firmwareGraph
-import com.geeksville.mesh.navigation.mapGraph
-import com.geeksville.mesh.navigation.nodesGraph
-import com.geeksville.mesh.navigation.settingsGraph
+import com.geeksville.mesh.navigation.ChannelsFlow
+import com.geeksville.mesh.navigation.ConnectionsFlow
+import com.geeksville.mesh.navigation.ContactsFlow
+import com.geeksville.mesh.navigation.NodesFlow
+import com.geeksville.mesh.navigation.SettingsFlow
 import com.geeksville.mesh.repository.radio.MeshActivity
 import com.geeksville.mesh.service.MeshService
 import com.geeksville.mesh.ui.connections.DeviceType
 import com.geeksville.mesh.ui.connections.components.ConnectionsNavIcon
+import com.geeksville.mesh.ui.sharing.ShareScreen
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -103,11 +99,13 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import org.meshtastic.core.model.DeviceVersion
+import org.meshtastic.core.navigation.ChannelsRoutes
 import org.meshtastic.core.navigation.ConnectionsRoutes
 import org.meshtastic.core.navigation.ContactsRoutes
+import org.meshtastic.core.navigation.DEEP_LINK_BASE_URI
+import org.meshtastic.core.navigation.FirmwareRoutes
 import org.meshtastic.core.navigation.MapRoutes
 import org.meshtastic.core.navigation.NodesRoutes
-import org.meshtastic.core.navigation.Route
 import org.meshtastic.core.navigation.SettingsRoutes
 import org.meshtastic.core.service.ConnectionState
 import org.meshtastic.core.strings.Res
@@ -142,29 +140,34 @@ import org.meshtastic.core.ui.qr.ScannedQrCodeDialog
 import org.meshtastic.core.ui.share.SharedContactDialog
 import org.meshtastic.core.ui.theme.StatusColors.StatusBlue
 import org.meshtastic.core.ui.theme.StatusColors.StatusGreen
+import org.meshtastic.feature.firmware.FirmwareUpdateScreen
+import org.meshtastic.feature.map.MapScreen
+import org.meshtastic.feature.messaging.QuickChatScreen
 import org.meshtastic.feature.node.metrics.annotateTraceroute
 import org.meshtastic.proto.MeshProtos
 import timber.log.Timber
 
-enum class TopLevelDestination(val label: StringResource, val icon: ImageVector, val route: Route) {
+enum class TopLevelDestination(val label: StringResource, val icon: ImageVector, val key: Any) {
     Conversations(Res.string.conversations, MeshtasticIcons.Conversations, ContactsRoutes.ContactsGraph),
     Nodes(Res.string.nodes, MeshtasticIcons.Nodes, NodesRoutes.NodesGraph),
     Map(Res.string.map, MeshtasticIcons.Map, MapRoutes.Map),
     Settings(Res.string.bottom_nav_settings, MeshtasticIcons.Settings, SettingsRoutes.SettingsGraph()),
     Connections(Res.string.connections, Icons.Rounded.Wifi, ConnectionsRoutes.ConnectionsGraph),
     ;
-
-    companion object {
-        fun fromNavDestination(destination: NavDestination?): TopLevelDestination? =
-            entries.find { dest -> destination?.hierarchy?.any { it.hasRoute(dest.route::class) } == true }
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: BTScanModel = hiltViewModel()) {
-    val navController = rememberNavController()
+    val mainBackStack = rememberNavBackStack<Any>(NodesRoutes.NodesGraph)
+    val nodesBackStack = rememberNavBackStack<Any>(NodesRoutes.Nodes)
+    val contactsBackStack = rememberNavBackStack<Any>(ContactsRoutes.Contacts)
+    val settingsBackStack = rememberNavBackStack<Any>(SettingsRoutes.Settings())
+    val connectionsBackStack = rememberNavBackStack<Any>(ConnectionsRoutes.Connections)
+    val channelsBackStack = rememberNavBackStack<Any>(ChannelsRoutes.Channels)
+
+    val context = LocalContext.current
     val connectionState by uIViewModel.connectionState.collectAsStateWithLifecycle()
     val requestChannelSet by uIViewModel.requestChannelSet.collectAsStateWithLifecycle()
     val sharedContactRequested by uIViewModel.sharedContactRequested.collectAsStateWithLifecycle()
@@ -189,7 +192,38 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: BTScanMode
         }
     }
 
-    uIViewModel.AddNavigationTrackingEffect(navController)
+    // Deep Link Handling
+    LaunchedEffect(Unit) {
+        val intent = (context as? Activity)?.intent
+        val data = intent?.data
+        if (data != null && data.toString().startsWith(DEEP_LINK_BASE_URI)) {
+            val path = data.toString().removePrefix(DEEP_LINK_BASE_URI)
+            when {
+                path.startsWith("/node") -> {
+                    // /node or /node/{id}
+                    val idStr = path.removePrefix("/node").removePrefix("/")
+                    val id = idStr.toIntOrNull()
+                    mainBackStack.clear()
+                    mainBackStack.add(NodesRoutes.NodesGraph)
+                    if (id != null) {
+                         nodesBackStack.add(NodesRoutes.NodeDetailGraph(id))
+                    }
+                }
+                path.startsWith("/settings") -> {
+                    mainBackStack.clear()
+                    mainBackStack.add(SettingsRoutes.SettingsGraph())
+                }
+                path.startsWith("/channels") -> {
+                    mainBackStack.clear()
+                    mainBackStack.add(ChannelsRoutes.ChannelsGraph)
+                }
+                 path.startsWith("/contacts") -> {
+                    mainBackStack.clear()
+                    mainBackStack.add(ContactsRoutes.ContactsGraph)
+                }
+            }
+        }
+    }
 
     VersionChecks(uIViewModel)
     val alertDialogState by uIViewModel.currentAlert.collectAsStateWithLifecycle()
@@ -212,6 +246,29 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: BTScanMode
         }
     }
 
+    val onNavigateExternal: (Any) -> Unit = { route ->
+        when (route) {
+            is NodesRoutes.NodeDetailGraph -> {
+                if (mainBackStack.last() != NodesRoutes.NodesGraph) {
+                    mainBackStack.clear()
+                    mainBackStack.add(NodesRoutes.NodesGraph)
+                }
+                nodesBackStack.add(route)
+            }
+            is ContactsRoutes.Messages -> {
+                if (mainBackStack.last() != ContactsRoutes.ContactsGraph) {
+                    mainBackStack.clear()
+                    mainBackStack.add(ContactsRoutes.ContactsGraph)
+                }
+                contactsBackStack.add(route)
+            }
+            is ChannelsRoutes.ChannelsGraph -> {
+                mainBackStack.add(route)
+            }
+            else -> mainBackStack.add(route)
+        }
+    }
+
     val clientNotification by uIViewModel.clientNotification.collectAsStateWithLifecycle()
     clientNotification?.let { notification ->
         var message = notification.message
@@ -227,7 +284,8 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: BTScanMode
             text = { Text(text = message) },
             onConfirm = {
                 if (compromisedKeys) {
-                    navController.navigate(SettingsRoutes.Security)
+                    onNavigateExternal(SettingsRoutes.SettingsGraph())
+                    settingsBackStack.add(SettingsRoutes.Security)
                 }
                 uIViewModel.clearClientNotification(notification)
             },
@@ -249,8 +307,8 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: BTScanMode
         )
     }
     val navSuiteType = NavigationSuiteScaffoldDefaults.navigationSuiteType(currentWindowAdaptiveInfo())
-    val currentDestination = navController.currentBackStackEntryAsState().value?.destination
-    val topLevelDestination = TopLevelDestination.fromNavDestination(currentDestination)
+    val currentKey = mainBackStack.last()
+    val topLevelDestination = TopLevelDestination.entries.find { it.key == currentKey }
 
     // State for determining the connection type icon to display
     val selectedDevice by scanModel.selectedNotNullFlow.collectAsStateWithLifecycle()
@@ -289,7 +347,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: BTScanMode
         modifier = Modifier.fillMaxSize(),
         navigationSuiteItems = {
             TopLevelDestination.entries.forEach { destination ->
-                val isSelected = destination == topLevelDestination
+                val isSelected = destination.key == currentKey
                 val isConnectionsRoute = destination == TopLevelDestination.Connections
                 item(
                     icon = {
@@ -386,56 +444,104 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: BTScanMode
                         }
                     },
                     onClick = {
-                        val isRepress = destination == topLevelDestination
+                        val isRepress = destination.key == currentKey
                         if (isRepress) {
                             when (destination) {
                                 TopLevelDestination.Nodes -> {
-                                    val onNodesList = currentDestination?.hasRoute(NodesRoutes.Nodes::class) == true
-                                    if (!onNodesList) {
-                                        navController.navigate(destination.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                            launchSingleTop = true
-                                        }
-                                    }
+                                    nodesBackStack.clear()
+                                    nodesBackStack.add(NodesRoutes.Nodes)
                                     uIViewModel.emitScrollToTopEvent(ScrollToTopEvent.NodesTabPressed)
                                 }
                                 TopLevelDestination.Conversations -> {
-                                    val onConversationsList =
-                                        currentDestination?.hasRoute(ContactsRoutes.Contacts::class) == true
-                                    if (!onConversationsList) {
-                                        navController.navigate(destination.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                            launchSingleTop = true
-                                        }
-                                    }
+                                    contactsBackStack.clear()
+                                    contactsBackStack.add(ContactsRoutes.Contacts)
                                     uIViewModel.emitScrollToTopEvent(ScrollToTopEvent.ConversationsTabPressed)
                                 }
                                 else -> Unit
                             }
                         } else {
-                            navController.navigate(destination.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                            }
+                            mainBackStack.clear()
+                            mainBackStack.add(destination.key)
                         }
                     },
                 )
             }
         },
     ) {
-        NavHost(
-            navController = navController,
-            startDestination = NodesRoutes.NodesGraph,
+        NavDisplay(
+            backStack = mainBackStack,
+            onBack = {
+                if (mainBackStack.size > 1) {
+                    mainBackStack.removeLast()
+                } else {
+                    (context as? Activity)?.finish()
+                }
+            },
             modifier = Modifier.fillMaxSize().recalculateWindowInsets().safeDrawingPadding().imePadding(),
-        ) {
-            contactsGraph(navController, uIViewModel.scrollToTopEventFlow)
-            nodesGraph(navController, uIViewModel.scrollToTopEventFlow)
-            mapGraph(navController)
-            channelsGraph(navController)
-            connectionsGraph(navController)
-            settingsGraph(navController)
-            firmwareGraph(navController)
-        }
+            entryProvider = entryProvider {
+                entry<ContactsRoutes.ContactsGraph> {
+                    ContactsFlow(
+                        backStack = contactsBackStack,
+                        onNavigateExternal = onNavigateExternal,
+                        onBack = { mainBackStack.removeLast() },
+                        scrollToTopEvents = uIViewModel.scrollToTopEventFlow,
+                    )
+                }
+                entry<NodesRoutes.NodesGraph> {
+                    NodesFlow(
+                        backStack = nodesBackStack,
+                        onNavigateExternal = onNavigateExternal,
+                        onBack = { mainBackStack.removeLast() },
+                        scrollToTopEvents = uIViewModel.scrollToTopEventFlow,
+                    )
+                }
+                entry<MapRoutes.Map> {
+                    MapScreen(
+                        onClickNodeChip = { onNavigateExternal(NodesRoutes.NodeDetailGraph(it)) },
+                        navigateToNodeDetails = { onNavigateExternal(NodesRoutes.NodeDetailGraph(it)) },
+                    )
+                }
+                entry<ChannelsRoutes.ChannelsGraph> {
+                    ChannelsFlow(
+                        backStack = channelsBackStack,
+                        onNavigateExternal = onNavigateExternal,
+                        onBack = { mainBackStack.removeLast() },
+                    )
+                }
+                entry<ConnectionsRoutes.ConnectionsGraph> {
+                    ConnectionsFlow(
+                        backStack = connectionsBackStack,
+                        onNavigateExternal = onNavigateExternal,
+                        onBack = { mainBackStack.removeLast() },
+                    )
+                }
+                entry<SettingsRoutes.SettingsGraph> {
+                    SettingsFlow(
+                        backStack = settingsBackStack,
+                        onNavigateExternal = onNavigateExternal,
+                        onBack = { mainBackStack.removeLast() },
+                    )
+                }
+                entry<FirmwareRoutes.FirmwareGraph> {
+                    FirmwareUpdateScreen(
+                        onBack = { mainBackStack.removeLast() },
+                    )
+                }
+
+                // Top-level / External Screens
+                entry<ContactsRoutes.Share> { args ->
+                    ShareScreen(
+                        onConfirm = {
+                            onNavigateExternal(ContactsRoutes.Messages(it, args.message))
+                        },
+                        onNavigateUp = { mainBackStack.removeLast() },
+                    )
+                }
+                entry<ContactsRoutes.QuickChat> {
+                    QuickChatScreen(onNavigateUp = { mainBackStack.removeLast() })
+                }
+            }
+        )
     }
 }
 

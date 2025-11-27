@@ -90,7 +90,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.mikepenz.markdown.m3.Markdown
@@ -130,7 +129,7 @@ import org.meshtastic.core.strings.i_know_what_i_m_doing
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FirmwareUpdateScreen(
-    navController: NavController,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: FirmwareUpdateViewModel = hiltViewModel(),
 ) {
@@ -159,7 +158,7 @@ fun FirmwareUpdateScreen(
             CenterAlignedTopAppBar(
                 title = { Text(stringResource(Res.string.firmware_update_title)) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
+                    IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -190,7 +189,7 @@ fun FirmwareUpdateScreen(
                     onStartUpdate = viewModel::startUpdate,
                     onPickFile = { launcher.launch("application/zip") },
                     onRetry = viewModel::checkForUpdates,
-                    onDone = { navController.navigateUp() },
+                    onDone = onBack,
                 )
             }
         }

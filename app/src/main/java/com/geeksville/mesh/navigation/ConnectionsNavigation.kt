@@ -17,46 +17,58 @@
 
 package com.geeksville.mesh.navigation
 
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.Composable
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.navigation.NavGraphBuilder
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.composable
-import androidx.navigation.navDeepLink
-import androidx.navigation.navigation
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.ui.NavDisplay
 import com.geeksville.mesh.ui.connections.ConnectionsScreen
 import org.meshtastic.core.navigation.ConnectionsRoutes
-import org.meshtastic.core.navigation.DEEP_LINK_BASE_URI
 import org.meshtastic.core.navigation.NodesRoutes
 import org.meshtastic.core.navigation.SettingsRoutes
+import org.meshtastic.feature.settings.radio.RadioConfigViewModel
 import org.meshtastic.feature.settings.radio.component.LoRaConfigScreen
 
-/** Navigation graph for for the top level ConnectionsScreen - [ConnectionsRoutes.Connections]. */
-fun NavGraphBuilder.connectionsGraph(navController: NavHostController) {
-    @Suppress("ktlint:standard:max-line-length")
-    navigation<ConnectionsRoutes.ConnectionsGraph>(startDestination = ConnectionsRoutes.Connections) {
-        composable<ConnectionsRoutes.Connections>(
-            deepLinks = listOf(
-                navDeepLink<ConnectionsRoutes.Connections>(basePath = "$DEEP_LINK_BASE_URI/connections"),
-            ),
-        ) { backStackEntry ->
-            val parentEntry =
-                remember(backStackEntry) { navController.getBackStackEntry(ConnectionsRoutes.ConnectionsGraph) }
-            ConnectionsScreen(
-                radioConfigViewModel = hiltViewModel(parentEntry),
-                onClickNodeChip = {
-                    navController.navigate(NodesRoutes.NodeDetailGraph(it)) {
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                onNavigateToNodeDetails = { navController.navigate(NodesRoutes.NodeDetailGraph(it)) },
-                onConfigNavigate = { route -> navController.navigate(route) },
-            )
-        }
+@Composable
+fun ConnectionsFlow(
+    backStack: MutableList<Any>,
+    onNavigateExternal: (Any) -> Unit,
+    onBack: () -> Unit
+) {
+    val viewModel: RadioConfigViewModel = hiltViewModel()
 
-        navController.configComposable<SettingsRoutes.LoRa, ConnectionsRoutes.ConnectionsGraph> {
-            LoRaConfigScreen(viewModel = it, onBack = navController::popBackStack)
+    NavDisplay(
+        backStack = backStack,
+        onBack = {
+            if (backStack.size > 1) {
+                backStack.removeLast()
+            } else {
+                onBack()
+            }
+        },
+        entryProvider = entryProvider {
+            entry<ConnectionsRoutes.Connections> {
+                ConnectionsScreen(
+                    radioConfigViewModel = viewModel,
+                    onClickNodeChip = {
+                        onNavigateExternal(NodesRoutes.NodeDetailGraph(it))
+                    },
+                    onNavigateToNodeDetails = {
+                        onNavigateExternal(NodesRoutes.NodeDetailGraph(it))
+                    },
+                    onConfigNavigate = { route ->
+                        if (route is SettingsRoutes.LoRa) {
+                            backStack.add(route)
+                        } else {
+                            onNavigateExternal(route)
+                        }
+                    },
+                )
+            }
+
+            entry<SettingsRoutes.LoRa> {
+                LoRaConfigScreen(viewModel = viewModel, onBack = { backStack.removeLast() })
+            }
         }
-    }
+    )
 }

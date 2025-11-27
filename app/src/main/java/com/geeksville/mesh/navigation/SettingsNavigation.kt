@@ -15,27 +15,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-@file:Suppress("Wrapping", "SpacingAroundColon")
-
 package com.geeksville.mesh.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.navigation.NavGraphBuilder
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.composable
-import androidx.navigation.navDeepLink
-import androidx.navigation.navigation
-import org.meshtastic.core.navigation.DEEP_LINK_BASE_URI
-import org.meshtastic.core.navigation.Graph
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.ui.NavDisplay
 import org.meshtastic.core.navigation.NodesRoutes
-import org.meshtastic.core.navigation.Route
+import org.meshtastic.core.navigation.SettingsRoute
 import org.meshtastic.core.navigation.SettingsRoutes
 import org.meshtastic.feature.settings.SettingsScreen
 import org.meshtastic.feature.settings.debugging.DebugScreen
-import org.meshtastic.feature.settings.navigation.ConfigRoute
-import org.meshtastic.feature.settings.navigation.ModuleRoute
 import org.meshtastic.feature.settings.radio.CleanNodeDatabaseScreen
 import org.meshtastic.feature.settings.radio.RadioConfigViewModel
 import org.meshtastic.feature.settings.radio.channel.ChannelConfigScreen
@@ -61,135 +52,71 @@ import org.meshtastic.feature.settings.radio.component.SerialConfigScreen
 import org.meshtastic.feature.settings.radio.component.StoreForwardConfigScreen
 import org.meshtastic.feature.settings.radio.component.TelemetryConfigScreen
 import org.meshtastic.feature.settings.radio.component.UserConfigScreen
-import kotlin.reflect.KClass
 
-@Suppress("LongMethod")
-fun NavGraphBuilder.settingsGraph(navController: NavHostController) {
-    navigation<SettingsRoutes.SettingsGraph>(startDestination = SettingsRoutes.Settings()) {
-        composable<SettingsRoutes.Settings>(
-            deepLinks = listOf(navDeepLink<SettingsRoutes.Settings>(basePath = "$DEEP_LINK_BASE_URI/settings")),
-        ) { backStackEntry ->
-            val parentEntry =
-                remember(backStackEntry) { navController.getBackStackEntry(SettingsRoutes.SettingsGraph::class) }
-            SettingsScreen(
-                viewModel = hiltViewModel(parentEntry),
-                onClickNodeChip = {
-                    navController.navigate(NodesRoutes.NodeDetailGraph(it)) {
-                        launchSingleTop = true
-                        restoreState = true
+@Composable
+fun SettingsFlow(
+    backStack: MutableList<Any>,
+    onNavigateExternal: (Any) -> Unit,
+    onBack: () -> Unit
+) {
+    val viewModel: RadioConfigViewModel = hiltViewModel()
+
+    NavDisplay(
+        backStack = backStack,
+        onBack = {
+            if (backStack.size > 1) {
+                backStack.removeLast()
+            } else {
+                onBack()
+            }
+        },
+        entryProvider = entryProvider {
+            entry<SettingsRoutes.Settings> {
+                SettingsScreen(
+                    viewModel = viewModel,
+                    onClickNodeChip = {
+                        onNavigateExternal(NodesRoutes.NodeDetailGraph(it))
+                    },
+                    onNavigate = { route ->
+                        if (route is SettingsRoute && route !is SettingsRoutes.SettingsGraph) {
+                            backStack.add(route)
+                        } else {
+                            onNavigateExternal(route)
+                        }
                     }
-                },
-            ) {
-                navController.navigate(it) { popUpTo(SettingsRoutes.Settings()) { inclusive = false } }
+                )
             }
-        }
 
-        composable<SettingsRoutes.CleanNodeDb>(
-            deepLinks =
-            listOf(
-                navDeepLink<SettingsRoutes.CleanNodeDb>(
-                    basePath = "$DEEP_LINK_BASE_URI/settings/radio/clean_node_db",
-                ),
-            ),
-        ) {
-            CleanNodeDatabaseScreen()
-        }
+            entry<SettingsRoutes.CleanNodeDb> { CleanNodeDatabaseScreen() }
 
-        ConfigRoute.entries.forEach { entry ->
-            navController.configComposable(
-                route = entry.route::class,
-                parentGraphRoute = SettingsRoutes.SettingsGraph::class,
-            ) { viewModel ->
-                when (entry) {
-                    ConfigRoute.USER -> UserConfigScreen(viewModel, onBack = navController::popBackStack)
+            entry<SettingsRoutes.User> { UserConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.ChannelConfig> { ChannelConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.Device> { DeviceConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.Position> { PositionConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.Power> { PowerConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.Network> { NetworkConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.Display> { DisplayConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.LoRa> { LoRaConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.Bluetooth> { BluetoothConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.Security> { SecurityConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
 
-                    ConfigRoute.CHANNELS -> ChannelConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ConfigRoute.DEVICE -> DeviceConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ConfigRoute.POSITION -> PositionConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ConfigRoute.POWER -> PowerConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ConfigRoute.NETWORK -> NetworkConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ConfigRoute.DISPLAY -> DisplayConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ConfigRoute.LORA -> LoRaConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ConfigRoute.BLUETOOTH -> BluetoothConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ConfigRoute.SECURITY -> SecurityConfigScreen(viewModel, onBack = navController::popBackStack)
-                }
+            entry<SettingsRoutes.MQTT> { MQTTConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.Serial> { SerialConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.ExtNotification> {
+                ExternalNotificationConfigScreen(viewModel = viewModel, onBack = { backStack.removeLast() })
             }
+            entry<SettingsRoutes.StoreForward> { StoreForwardConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.RangeTest> { RangeTestConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.Telemetry> { TelemetryConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.CannedMessage> { CannedMessageConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.Audio> { AudioConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.RemoteHardware> { RemoteHardwareConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.NeighborInfo> { NeighborInfoConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.AmbientLighting> { AmbientLightingConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.DetectionSensor> { DetectionSensorConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+            entry<SettingsRoutes.Paxcounter> { PaxcounterConfigScreen(viewModel, onBack = { backStack.removeLast() }) }
+
+            entry<SettingsRoutes.DebugPanel> { DebugScreen(onNavigateUp = { backStack.removeLast() }) }
         }
-
-        ModuleRoute.entries.forEach { entry ->
-            navController.configComposable(
-                route = entry.route::class,
-                parentGraphRoute = SettingsRoutes.SettingsGraph::class,
-            ) { viewModel ->
-                when (entry) {
-                    ModuleRoute.MQTT -> MQTTConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ModuleRoute.SERIAL -> SerialConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ModuleRoute.EXT_NOTIFICATION ->
-                        ExternalNotificationConfigScreen(viewModel = viewModel, onBack = navController::popBackStack)
-
-                    ModuleRoute.STORE_FORWARD ->
-                        StoreForwardConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ModuleRoute.RANGE_TEST -> RangeTestConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ModuleRoute.TELEMETRY -> TelemetryConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ModuleRoute.CANNED_MESSAGE ->
-                        CannedMessageConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ModuleRoute.AUDIO -> AudioConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ModuleRoute.REMOTE_HARDWARE ->
-                        RemoteHardwareConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ModuleRoute.NEIGHBOR_INFO ->
-                        NeighborInfoConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ModuleRoute.AMBIENT_LIGHTING ->
-                        AmbientLightingConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ModuleRoute.DETECTION_SENSOR ->
-                        DetectionSensorConfigScreen(viewModel, onBack = navController::popBackStack)
-
-                    ModuleRoute.PAXCOUNTER -> PaxcounterConfigScreen(viewModel, onBack = navController::popBackStack)
-                }
-            }
-        }
-
-        composable<SettingsRoutes.DebugPanel>(
-            deepLinks =
-            listOf(navDeepLink<SettingsRoutes.DebugPanel>(basePath = "$DEEP_LINK_BASE_URI/settings/debug_panel")),
-        ) {
-            DebugScreen(onNavigateUp = navController::navigateUp)
-        }
-    }
-}
-
-context(_: NavGraphBuilder)
-inline fun <reified R : Route, reified G : Graph> NavHostController.configComposable(
-    noinline content: @Composable (RadioConfigViewModel) -> Unit,
-) {
-    configComposable(route = R::class, parentGraphRoute = G::class, content = content)
-}
-
-context(navGraphBuilder: NavGraphBuilder)
-fun <R : Route, G : Graph> NavHostController.configComposable(
-    route: KClass<R>,
-    parentGraphRoute: KClass<G>,
-    content: @Composable (RadioConfigViewModel) -> Unit,
-) {
-    navGraphBuilder.composable(route = route) { backStackEntry ->
-        val parentEntry = remember(backStackEntry) { getBackStackEntry(parentGraphRoute) }
-        content(hiltViewModel(parentEntry))
-    }
+    )
 }

@@ -17,40 +17,57 @@
 
 package com.geeksville.mesh.navigation
 
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.Composable
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.navigation.NavGraphBuilder
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.composable
-import androidx.navigation.navDeepLink
-import androidx.navigation.navigation
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.ui.NavDisplay
 import com.geeksville.mesh.ui.sharing.ChannelScreen
 import org.meshtastic.core.navigation.ChannelsRoutes
-import org.meshtastic.core.navigation.DEEP_LINK_BASE_URI
 import org.meshtastic.core.navigation.SettingsRoutes
+import org.meshtastic.feature.settings.radio.RadioConfigViewModel
 import org.meshtastic.feature.settings.radio.channel.ChannelConfigScreen
 import org.meshtastic.feature.settings.radio.component.LoRaConfigScreen
 
-/** Navigation graph for for the top level ChannelScreen - [ChannelsRoutes.Channels]. */
-fun NavGraphBuilder.channelsGraph(navController: NavHostController) {
-    navigation<ChannelsRoutes.ChannelsGraph>(startDestination = ChannelsRoutes.Channels) {
-        composable<ChannelsRoutes.Channels>(
-            deepLinks = listOf(navDeepLink<ChannelsRoutes.Channels>(basePath = "$DEEP_LINK_BASE_URI/channels")),
-        ) { backStackEntry ->
-            val parentEntry = remember(backStackEntry) { navController.getBackStackEntry(ChannelsRoutes.ChannelsGraph) }
-            ChannelScreen(
-                radioConfigViewModel = hiltViewModel(parentEntry),
-                onNavigate = { route -> navController.navigate(route) },
-                onNavigateUp = { navController.navigateUp() },
-            )
-        }
+@Composable
+fun ChannelsFlow(
+    backStack: MutableList<Any>,
+    onNavigateExternal: (Any) -> Unit,
+    onBack: () -> Unit
+) {
+    val viewModel: RadioConfigViewModel = hiltViewModel()
 
-        navController.configComposable<SettingsRoutes.ChannelConfig, ChannelsRoutes.ChannelsGraph> {
-            ChannelConfigScreen(viewModel = it, onBack = navController::popBackStack)
-        }
+    NavDisplay(
+        backStack = backStack,
+        onBack = {
+            if (backStack.size > 1) {
+                backStack.removeLast()
+            } else {
+                onBack()
+            }
+        },
+        entryProvider = entryProvider {
+            entry<ChannelsRoutes.Channels> {
+                ChannelScreen(
+                    radioConfigViewModel = viewModel,
+                    onNavigate = { route ->
+                        if (route is SettingsRoutes.ChannelConfig || route is SettingsRoutes.LoRa) {
+                            backStack.add(route)
+                        } else {
+                            onNavigateExternal(route)
+                        }
+                    },
+                    onNavigateUp = onBack
+                )
+            }
 
-        navController.configComposable<SettingsRoutes.LoRa, ChannelsRoutes.ChannelsGraph> {
-            LoRaConfigScreen(viewModel = it, onBack = navController::popBackStack)
+            entry<SettingsRoutes.ChannelConfig> {
+                ChannelConfigScreen(viewModel = viewModel, onBack = { backStack.removeLast() })
+            }
+
+            entry<SettingsRoutes.LoRa> {
+                LoRaConfigScreen(viewModel = viewModel, onBack = { backStack.removeLast() })
+            }
         }
-    }
+    )
 }
