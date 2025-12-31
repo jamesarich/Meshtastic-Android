@@ -37,6 +37,7 @@ interface MeshServiceNotifications {
         message: String,
         isBroadcast: Boolean,
         channelName: String?,
+        isWaypoint: Boolean = false,
     )
 
     fun showAlertNotification(contactKey: String, name: String, alert: String)

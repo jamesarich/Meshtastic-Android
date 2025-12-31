@@ -50,11 +50,13 @@ import org.meshtastic.core.strings.low_battery_message
 import org.meshtastic.core.strings.low_battery_title
 import org.meshtastic.core.strings.meshtastic_alerts_notifications
 import org.meshtastic.core.strings.meshtastic_broadcast_notifications
+import org.meshtastic.core.strings.meshtastic_broadcast_waypoint_notifications
 import org.meshtastic.core.strings.meshtastic_low_battery_notifications
 import org.meshtastic.core.strings.meshtastic_low_battery_temporary_remote_notifications
 import org.meshtastic.core.strings.meshtastic_messages_notifications
 import org.meshtastic.core.strings.meshtastic_new_nodes_notifications
 import org.meshtastic.core.strings.meshtastic_service_notifications
+import org.meshtastic.core.strings.meshtastic_waypoint_notifications
 import org.meshtastic.core.strings.new_node_seen
 import org.meshtastic.core.strings.no_local_stats
 import org.meshtastic.core.strings.reply
@@ -111,6 +113,20 @@ class MeshServiceNotificationsImpl @Inject constructor(@ApplicationContext priva
                 NotificationManager.IMPORTANCE_DEFAULT,
             )
 
+        object DirectWaypoint :
+            NotificationType(
+                "my_waypoints",
+                Res.string.meshtastic_waypoint_notifications,
+                NotificationManager.IMPORTANCE_HIGH,
+            )
+
+        object BroadcastWaypoint :
+            NotificationType(
+                "my_broadcast_waypoints",
+                Res.string.meshtastic_broadcast_waypoint_notifications,
+                NotificationManager.IMPORTANCE_DEFAULT,
+            )
+
         object Alert :
             NotificationType(
                 "my_alerts",
@@ -157,6 +173,8 @@ class MeshServiceNotificationsImpl @Inject constructor(@ApplicationContext priva
                 LowBatteryLocal,
                 LowBatteryRemote,
                 Client,
+                DirectWaypoint,
+                BroadcastWaypoint,
             )
         }
     }
@@ -193,6 +211,8 @@ class MeshServiceNotificationsImpl @Inject constructor(@ApplicationContext priva
                     NotificationType.NewNode,
                     NotificationType.LowBatteryLocal,
                     NotificationType.LowBatteryRemote,
+                    NotificationType.DirectWaypoint,
+                    NotificationType.BroadcastWaypoint,
                     -> {
                         setShowBadge(true)
                         setSound(
@@ -277,8 +297,9 @@ class MeshServiceNotificationsImpl @Inject constructor(@ApplicationContext priva
         message: String,
         isBroadcast: Boolean,
         channelName: String?,
+        isWaypoint: Boolean,
     ) {
-        val notification = createMessageNotification(contactKey, name, message, isBroadcast, channelName)
+        val notification = createMessageNotification(contactKey, name, message, isBroadcast, channelName, isWaypoint)
         // Use a consistent, unique ID for each message conversation.
         notificationManager.notify(contactKey.hashCode(), notification)
     }
@@ -346,8 +367,15 @@ class MeshServiceNotificationsImpl @Inject constructor(@ApplicationContext priva
         message: String,
         isBroadcast: Boolean,
         channelName: String? = null,
+        isWaypoint: Boolean = false,
     ): Notification {
-        val type = if (isBroadcast) NotificationType.BroadcastMessage else NotificationType.DirectMessage
+        val type =
+            when {
+                isWaypoint && isBroadcast -> NotificationType.BroadcastWaypoint
+                isWaypoint -> NotificationType.DirectWaypoint
+                isBroadcast -> NotificationType.BroadcastMessage
+                else -> NotificationType.DirectMessage
+            }
         val builder = commonBuilder(type, createOpenMessageIntent(contactKey))
 
         val person = Person.Builder().setName(name).build()

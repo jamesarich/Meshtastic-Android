@@ -394,6 +394,7 @@ class MeshService : Service() {
             } else {
                 null
             },
+            isWaypoint = dataPacket.dataType == Portnums.PortNum.WAYPOINT_APP_VALUE,
         )
     }
 
