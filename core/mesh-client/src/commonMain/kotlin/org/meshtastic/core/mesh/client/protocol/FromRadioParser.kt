@@ -14,20 +14,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.geeksville.mesh.service
+package org.meshtastic.core.mesh.client.protocol
 
-import org.meshtastic.core.mesh.client.handler.FromRadioDispatcher
+import org.meshtastic.core.mesh.client.protocol.ProtoFramer.RawFromRadio
 import org.meshtastic.proto.FromRadio
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
- * Android façade around the shared [FromRadioDispatcher], allowing existing service classes to gradually delegate logic
- * to the new KMP layer.
+ * Platform-specific decoder for FromRadio payloads. Android uses Wire proto while other platforms can plug in their own
+ * implementation.
  */
-@Singleton
-class FromRadioPacketHandler @Inject constructor(private val dispatcher: FromRadioDispatcher) {
-    fun handleFromRadio(proto: FromRadio) {
-        dispatcher.handle(proto)
-    }
+interface FromRadioParser {
+    fun decode(raw: RawFromRadio): FromRadioMessage?
 }
+
+data class FromRadioMessage(val raw: RawFromRadio, val payload: FromRadio?)

@@ -106,9 +106,11 @@ constructor(
         nodeManager.updateNodeInfo(node.num) { it.isIgnored = !node.isIgnored }
     }
 
+    @Suppress("UnusedParameter")
     private fun handleMute(action: ServiceAction.Mute, myNodeNum: Int) {
         val node = action.node
-        commandSender.sendAdmin(myNodeNum) { copy(toggle_muted_node = node.num) }
+        // Note: Mute functionality is tracked locally in the database only.
+        // The proto no longer supports toggle_muted_node admin command.
         nodeManager.updateNodeInfo(node.num) { it.isMuted = !node.isMuted }
     }
 

@@ -242,7 +242,7 @@ constructor(
             entity.hopsAway = info.hops_away ?: -1
             entity.isFavorite = info.is_favorite
             entity.isIgnored = info.is_ignored
-            entity.isMuted = info.is_muted
+            // Note: is_muted is stored locally only, not in the proto
         }
     }
 

@@ -80,6 +80,8 @@ abstract class BaseMapViewModel(
     val myNodeNum
         get() = myNodeInfo.value?.myNodeNum
 
+    val myId = nodeRepository.myId
+
     val nodes: StateFlow<List<Node>> =
         nodeRepository
             .getNodes()
@@ -124,6 +126,8 @@ abstract class BaseMapViewModel(
     fun getNodeByNum(nodeNum: Int): Node? = nodeRepository.nodeDBbyNum.value[nodeNum]
 
     fun getUser(nodeNum: Int): User = nodeRepository.getUser(nodeNum)
+
+    fun getUser(userId: String?): User = nodeRepository.getUser(userId ?: DataPacket.ID_BROADCAST)
 
     fun getNodeOrFallback(nodeNum: Int): Node = getNodeByNum(nodeNum) ?: Node(num = nodeNum, user = getUser(nodeNum))
 

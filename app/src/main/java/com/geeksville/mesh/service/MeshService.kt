@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import org.meshtastic.core.common.hasLocationPermission
 import org.meshtastic.core.data.repository.RadioConfigRepository
+import org.meshtastic.core.mesh.client.protocol.RadioProtocolManager
 import org.meshtastic.core.model.DataPacket
 import org.meshtastic.core.model.DeviceVersion
 import org.meshtastic.core.model.MeshUser
@@ -82,6 +83,8 @@ class MeshService : Service() {
 
     @Inject lateinit var router: MeshRouter
 
+    @Inject lateinit var radioProtocolManager: RadioProtocolManager
+
     private val serviceJob = Job()
     private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
 
@@ -118,6 +121,16 @@ class MeshService : Service() {
 
         packetHandler.start(serviceScope)
         router.start(serviceScope)
+        radioProtocolManager.bindTransport(
+            transportSpec =
+            org.meshtastic.core.mesh.client.transport.TransportSpec(
+                type = org.meshtastic.core.mesh.client.transport.TransportType.BLE,
+                address = radioInterfaceService.getDeviceAddress() ?: "",
+            ),
+            radioTransport =
+            com.geeksville.mesh.service.transport.RadioInterfaceTransport(radioInterfaceService, serviceScope),
+            incomingBytes = radioInterfaceService.receivedData,
+        )
         nodeManager.start(serviceScope)
         connectionManager.start(serviceScope)
         messageProcessor.start(serviceScope)
@@ -125,10 +138,9 @@ class MeshService : Service() {
 
         serviceScope.handledLaunch { radioInterfaceService.connect() }
 
-        radioInterfaceService.receivedData
-            .onEach { bytes -> messageProcessor.handleFromRadio(bytes, nodeManager.myNodeNum) }
+        radioProtocolManager.decodedMessages
+            .onEach { packet -> messageProcessor.handleFromRadio(packet, nodeManager.myNodeNum) }
             .launchIn(serviceScope)
-
         serviceRepository.serviceAction.onEach(router.actionHandler::onServiceAction).launchIn(serviceScope)
 
         nodeManager.loadCachedNodeDB()

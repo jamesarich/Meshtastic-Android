@@ -14,20 +14,26 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.geeksville.mesh.service
 
-import org.meshtastic.core.mesh.client.handler.FromRadioDispatcher
-import org.meshtastic.proto.FromRadio
-import javax.inject.Inject
-import javax.inject.Singleton
+plugins {
+    alias(libs.plugins.meshtastic.kmp.library)
+    alias(libs.plugins.meshtastic.kotlinx.serialization)
+}
 
-/**
- * Android façade around the shared [FromRadioDispatcher], allowing existing service classes to gradually delegate logic
- * to the new KMP layer.
- */
-@Singleton
-class FromRadioPacketHandler @Inject constructor(private val dispatcher: FromRadioDispatcher) {
-    fun handleFromRadio(proto: FromRadio) {
-        dispatcher.handle(proto)
+kotlin {
+    androidLibrary { androidResources.enable = false }
+
+    sourceSets {
+        commonMain.dependencies {
+            api(projects.core.proto)
+            implementation(projects.core.common)
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.serialization.core)
+            implementation(libs.kermit)
+            implementation(libs.javax.inject)
+            implementation(libs.okio)
+        }
+
+        androidMain.dependencies { implementation(libs.androidx.core.ktx) }
     }
 }

@@ -196,6 +196,7 @@ dependencies {
     implementation(projects.core.service)
     implementation(projects.core.strings)
     implementation(projects.core.ui)
+    implementation(projects.core.meshClient)
     implementation(projects.feature.intro)
     implementation(projects.feature.messaging)
     implementation(projects.feature.map)

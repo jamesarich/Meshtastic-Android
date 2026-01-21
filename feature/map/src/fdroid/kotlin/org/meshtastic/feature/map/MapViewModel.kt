@@ -26,7 +26,6 @@ import org.meshtastic.core.common.BuildConfigProvider
 import org.meshtastic.core.data.repository.NodeRepository
 import org.meshtastic.core.data.repository.PacketRepository
 import org.meshtastic.core.data.repository.RadioConfigRepository
-import org.meshtastic.core.model.DataPacket
 import org.meshtastic.core.navigation.MapRoutes
 import org.meshtastic.core.prefs.map.MapPrefs
 import org.meshtastic.core.service.ServiceRepository
@@ -63,6 +62,4 @@ constructor(
         get() = localConfig.value
 
     val applicationId = buildConfigProvider.applicationId
-
-    override fun getUser(userId: String?) = nodeRepository.getUser(userId ?: DataPacket.ID_BROADCAST)
 }

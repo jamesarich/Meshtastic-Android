@@ -29,13 +29,12 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import org.meshtastic.core.data.repository.MeshLogRepository
 import org.meshtastic.core.database.entity.MeshLog
+import org.meshtastic.core.mesh.client.protocol.FromRadioMessage
 import org.meshtastic.core.service.ServiceRepository
 import org.meshtastic.proto.FromRadio
-import org.meshtastic.proto.LogRecord
 import org.meshtastic.proto.MeshPacket
 import org.meshtastic.proto.PortNum
 import java.util.ArrayDeque
-import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -75,24 +74,9 @@ constructor(
             .launchIn(scope)
     }
 
-    fun handleFromRadio(bytes: ByteArray, myNodeNum: Int?) {
-        runCatching { FromRadio.ADAPTER.decode(bytes) }
-            .onSuccess { proto ->
-                // Wire doesn't have a direct equivalent to PAYLOADVARIANT_NOT_SET
-                processFromRadio(proto, myNodeNum)
-            }
-            .onFailure { primaryException ->
-                runCatching {
-                    val logRecord = LogRecord.ADAPTER.decode(bytes)
-                    processFromRadio(FromRadio(log_record = logRecord), myNodeNum)
-                }
-                    .onFailure { _ ->
-                        Logger.e(primaryException) {
-                            "Failed to parse radio packet (len=${bytes.size} contents=${bytes.toHexString()}). " +
-                                "Not a valid FromRadio or LogRecord."
-                        }
-                    }
-            }
+    fun handleFromRadio(message: FromRadioMessage, myNodeNum: Int?) {
+        val proto = message.payload as? FromRadio ?: return
+        processFromRadio(proto, myNodeNum)
     }
 
     private fun processFromRadio(proto: FromRadio, myNodeNum: Int?) {
@@ -248,7 +232,4 @@ constructor(
             else -> logger.i(throwable) { msg }
         }
     }
-
-    private fun ByteArray.toHexString(): String =
-        this.joinToString(",") { byte -> String.format(Locale.US, "0x%02x", byte) }
 }

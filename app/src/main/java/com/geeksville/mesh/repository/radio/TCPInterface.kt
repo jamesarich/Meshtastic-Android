@@ -25,6 +25,7 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.meshtastic.core.di.CoroutineDispatchers
+import org.meshtastic.proto.Heartbeat
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.IOException
@@ -148,11 +149,8 @@ constructor(
 
     override fun keepAlive() {
         Logger.d { "[$address] TCP keepAlive" }
-        val heartbeat =
-            org.meshtastic.proto.MeshProtos.ToRadio.newBuilder()
-                .setHeartbeat(org.meshtastic.proto.MeshProtos.Heartbeat.getDefaultInstance())
-                .build()
-        handleSendToRadio(heartbeat.toByteArray())
+        val heartbeat = Heartbeat()
+        handleSendToRadio(heartbeat.encode())
     }
 
     // Create a socket to make the connection with the server

@@ -40,7 +40,6 @@ import org.meshtastic.core.strings.routing_error_no_route
 import org.meshtastic.core.strings.routing_error_none
 import org.meshtastic.core.strings.routing_error_not_authorized
 import org.meshtastic.core.strings.routing_error_pki_failed
-import org.meshtastic.core.strings.routing_error_pki_send_fail_public_key
 import org.meshtastic.core.strings.routing_error_pki_unknown_pubkey
 import org.meshtastic.core.strings.routing_error_rate_limit_exceeded
 import org.meshtastic.core.strings.routing_error_timeout
@@ -67,7 +66,6 @@ fun getStringResFrom(routingError: Int): StringResource = when (routingError) {
     Routing.Error.ADMIN_BAD_SESSION_KEY.value -> Res.string.routing_error_admin_bad_session_key
     Routing.Error.ADMIN_PUBLIC_KEY_UNAUTHORIZED.value -> Res.string.routing_error_admin_public_key_unauthorized
     Routing.Error.RATE_LIMIT_EXCEEDED.value -> Res.string.routing_error_rate_limit_exceeded
-    Routing.Error.PKI_SEND_FAIL_PUBLIC_KEY.value -> Res.string.routing_error_pki_send_fail_public_key
     else -> Res.string.unrecognized
 }
 

@@ -14,20 +14,25 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.geeksville.mesh.service
+package org.meshtastic.core.mesh.client.transport
 
-import org.meshtastic.core.mesh.client.handler.FromRadioDispatcher
-import org.meshtastic.proto.FromRadio
-import javax.inject.Inject
-import javax.inject.Singleton
+/** Supported transport types for connecting to Meshtastic devices. */
+enum class TransportType(val id: Char) {
+    /** Bluetooth Low Energy */
+    BLE('b'),
 
-/**
- * Android façade around the shared [FromRadioDispatcher], allowing existing service classes to gradually delegate logic
- * to the new KMP layer.
- */
-@Singleton
-class FromRadioPacketHandler @Inject constructor(private val dispatcher: FromRadioDispatcher) {
-    fun handleFromRadio(proto: FromRadio) {
-        dispatcher.handle(proto)
+    /** TCP/IP tunnel */
+    TCP('t'),
+
+    /** Serial/USB */
+    SERIAL('s'),
+
+    /** Unknown/unsupported */
+    UNKNOWN('?'),
+    ;
+
+    companion object {
+        /** Resolve a transport type for its identifier. */
+        fun forIdChar(value: Char): TransportType? = entries.firstOrNull { it.id == value }
     }
 }
