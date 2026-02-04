@@ -23,6 +23,5 @@ kotlin {
 
     sourceSets {
         androidMain.dependencies { implementation(libs.androidx.core.ktx) }
-        commonTest.dependencies { implementation(kotlin("test")) }
     }
 }

@@ -187,7 +187,10 @@ androidComponents {
     }
 }
 
-project.afterEvaluate { logger.lifecycle("Version code is set to: ${android.defaultConfig.versionCode}") }
+project.afterEvaluate {
+    val applicationExtension = extensions.getByType<ApplicationExtension>()
+    logger.lifecycle("Version code is set to: ${applicationExtension.defaultConfig.versionCode}")
+}
 
 dependencies {
     implementation(projects.core.analytics)
