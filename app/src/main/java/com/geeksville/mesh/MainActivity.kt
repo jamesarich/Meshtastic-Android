@@ -21,6 +21,8 @@ import android.app.PendingIntent
 import android.app.TaskStackBuilder
 import android.content.Intent
 import android.graphics.Color
+import android.nfc.NdefMessage
+import android.nfc.NfcAdapter
 import android.hardware.usb.UsbManager
 import android.net.Uri
 import android.os.Build
@@ -113,10 +115,21 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleIntent(intent: Intent) {
         val appLinkAction = intent.action
-        val appLinkData: Uri? = intent.data
+        val appLinkData: Uri? =
+            if (appLinkAction == NfcAdapter.ACTION_NDEF_DISCOVERED) {
+                val rawMessages = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES)
+                if (rawMessages != null && rawMessages.isNotEmpty()) {
+                    val message = rawMessages[0] as NdefMessage
+                    message.records.firstOrNull()?.toUri()
+                } else {
+                    intent.data
+                }
+            } else {
+                intent.data
+            }
 
         when (appLinkAction) {
-            Intent.ACTION_VIEW -> {
+            Intent.ACTION_VIEW, NfcAdapter.ACTION_NDEF_DISCOVERED -> {
                 appLinkData?.let {
                     Logger.d { "App link data: $it" }
                     if (it.path?.startsWith("/e/") == true || it.path?.startsWith("/E/") == true) {

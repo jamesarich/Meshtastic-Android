@@ -83,3 +83,6 @@ val MeshtasticIcons.ThumbUp: ImageVector
 
 val MeshtasticIcons.QrCode2: ImageVector
     get() = Icons.Rounded.QrCode2
+
+val MeshtasticIcons.Nfc: ImageVector
+    get() = Icons.Rounded.Nfc

@@ -28,11 +28,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.twotone.QrCodeScanner
+import androidx.compose.material.icons.twotone.Nfc
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
@@ -80,6 +85,9 @@ fun AddContactFAB(
     modifier: Modifier = Modifier,
     onSharedContactRequested: (SharedContact?) -> Unit,
 ) {
+    var showScanOptions by remember { mutableStateOf(false) }
+    var showNfcScanner by remember { mutableStateOf(false) }
+
     val barcodeLauncher =
         rememberLauncherForActivityResult(ScanContract()) { result ->
             if (result.contents != null) {
@@ -119,14 +127,50 @@ fun AddContactFAB(
         }
     }
 
+    if (showScanOptions) {
+        MultipleChoiceAlertDialog(
+            title = stringResource(Res.string.scan),
+            choices = mapOf(
+                stringResource(Res.string.scan_qr_code) to {
+                    showScanOptions = false
+                    if (cameraPermissionState.status.isGranted) {
+                        zxingScan()
+                    } else {
+                        cameraPermissionState.launchPermissionRequest()
+                    }
+                },
+                stringResource(Res.string.nfc_scan) to {
+                    showScanOptions = false
+                    showNfcScanner = true
+                }
+            ),
+            onDismissRequest = { showScanOptions = false }
+        )
+    }
+
+    if (showNfcScanner) {
+        NfcScannerPrompt(
+            onUriDetected = { uri ->
+                showNfcScanner = false
+                val sharedContact =
+                    try {
+                        uri.toSharedContact()
+                    } catch (ex: MalformedURLException) {
+                        Logger.e { "URL was malformed: ${ex.message}" }
+                        null
+                    }
+                if (sharedContact != null) {
+                    onSharedContactRequested(sharedContact)
+                }
+            },
+            onDismiss = { showNfcScanner = false }
+        )
+    }
+
     FloatingActionButton(
         modifier = modifier,
         onClick = {
-            if (cameraPermissionState.status.isGranted) {
-                zxingScan()
-            } else {
-                cameraPermissionState.launchPermissionRequest()
-            }
+            showScanOptions = true
         },
     ) {
         Icon(imageVector = Icons.TwoTone.QrCodeScanner, contentDescription = stringResource(Res.string.scan_qr_code))

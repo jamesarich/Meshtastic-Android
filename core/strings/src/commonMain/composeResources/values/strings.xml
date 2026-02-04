@@ -780,6 +780,10 @@
     <string name="unmute">Unmute</string>
     <string name="dynamic">Dynamic</string>
     <string name="scan_qr_code">Scan QR Code</string>
+    <string name="nfc_scan">Scan NFC</string>
+    <string name="nfc_scan_description">Hold NFC tag near phone</string>
+    <string name="nfc_not_supported">NFC not supported</string>
+    <string name="nfc_tag_detected">NFC tag detected</string>
     <string name="share_contact">Share Contact</string>
     <string name="notes">Notes</string>
     <string name="add_a_note">Add a private note…</string>
