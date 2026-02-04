@@ -121,6 +121,8 @@ import org.meshtastic.core.strings.url
 import org.meshtastic.core.ui.component.AdaptiveTwoPane
 import org.meshtastic.core.ui.component.ChannelSelection
 import org.meshtastic.core.ui.component.MainAppBar
+import org.meshtastic.core.ui.component.MultipleChoiceAlertDialog
+import org.meshtastic.core.ui.component.NfcScannerPrompt
 import org.meshtastic.core.ui.component.PreferenceFooter
 import org.meshtastic.core.ui.qr.ScannedQrCodeDialog
 import org.meshtastic.core.ui.util.showToast
@@ -160,6 +162,9 @@ fun ChannelScreen(
     var showResetDialog by remember { mutableStateOf(false) }
 
     var shouldAddChannelsState by remember { mutableStateOf(true) }
+
+    var showScanOptions by remember { mutableStateOf(false) }
+    var showNfcScanner by remember { mutableStateOf(false) }
 
     val requestChannelSet by viewModel.requestChannelSet.collectAsStateWithLifecycle()
 
@@ -289,6 +294,39 @@ fun ChannelScreen(
 
     requestChannelSet?.let { ScannedQrCodeDialog(it, onDismiss = { viewModel.clearRequestChannelUrl() }) }
 
+    if (showScanOptions) {
+        MultipleChoiceAlertDialog(
+            title = stringResource(Res.string.scan),
+            choices = mapOf(
+                stringResource(Res.string.scan_qr_code) to {
+                    showScanOptions = false
+                    if (cameraPermissionState.status.isGranted) {
+                        zxingScan()
+                    } else {
+                        cameraPermissionState.launchPermissionRequest()
+                    }
+                },
+                stringResource(Res.string.nfc_scan) to {
+                    showScanOptions = false
+                    showNfcScanner = true
+                }
+            ),
+            onDismissRequest = { showScanOptions = false }
+        )
+    }
+
+    if (showNfcScanner) {
+        NfcScannerPrompt(
+            onUriDetected = { uri ->
+                showNfcScanner = false
+                viewModel.requestChannelUrl(uri) {
+                    scope.launch { context.showToast(Res.string.channel_invalid) }
+                }
+            },
+            onDismiss = { showNfcScanner = false }
+        )
+    }
+
     Scaffold(
         topBar = {
             MainAppBar(
@@ -367,11 +405,7 @@ fun ChannelScreen(
                     positiveText = stringResource(Res.string.scan),
                     onPositiveClicked = {
                         focusManager.clearFocus()
-                        if (cameraPermissionState.status.isGranted) {
-                            zxingScan()
-                        } else {
-                            cameraPermissionState.launchPermissionRequest()
-                        }
+                        showScanOptions = true
                     },
                 )
             }
