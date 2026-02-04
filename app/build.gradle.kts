@@ -229,7 +229,6 @@ dependencies {
     implementation(libs.androidx.paging.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.coil.svg)
-    implementation(libs.zxing.android.embedded) { isTransitive = false }
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.org.eclipse.paho.client.mqttv3)
@@ -246,8 +245,10 @@ dependencies {
 
     googleImplementation(libs.location.services)
     googleImplementation(libs.play.services.maps)
+    googleImplementation(libs.play.services.mlkit.barcode.scanning)
 
     fdroidImplementation(libs.osmdroid.android)
+    fdroidImplementation(libs.mlkit.barcode.scanning)
     fdroidImplementation(libs.osmdroid.geopackage) { exclude(group = "com.j256.ormlite") }
 
     androidTestImplementation(libs.androidx.test.runner)

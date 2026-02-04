@@ -49,9 +49,8 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import com.google.zxing.WriterException
-import com.journeyapps.barcodescanner.BarcodeEncoder
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
+import org.meshtastic.core.model.util.toBitmap
+import org.meshtastic.core.ui.qr.MlKitScanContract
 import okio.ByteString
 import okio.ByteString.Companion.toByteString
 import org.jetbrains.compose.resources.stringResource
@@ -81,9 +80,9 @@ fun AddContactFAB(
     onSharedContactRequested: (SharedContact?) -> Unit,
 ) {
     val barcodeLauncher =
-        rememberLauncherForActivityResult(ScanContract()) { result ->
-            if (result.contents != null) {
-                val uri = result.contents.toUri()
+        rememberLauncherForActivityResult(MlKitScanContract()) { contents ->
+            if (contents != null) {
+                val uri = contents.toUri()
                 val sharedContact =
                     try {
                         uri.toSharedContact()
@@ -99,14 +98,9 @@ fun AddContactFAB(
 
     sharedContact?.let { SharedContactDialog(sharedContact = it, onDismiss = { onSharedContactRequested(null) }) }
 
-    fun zxingScan() {
-        Logger.d { "Starting zxing QR code scanner" }
-        val zxingScan = ScanOptions()
-        zxingScan.setCameraId(CAMERA_ID)
-        zxingScan.setPrompt("")
-        zxingScan.setBeepEnabled(false)
-        zxingScan.setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-        barcodeLauncher.launch(zxingScan)
+    fun mlKitScan() {
+        Logger.d { "Starting ML Kit QR code scanner" }
+        barcodeLauncher.launch(Unit)
     }
 
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
@@ -123,7 +117,7 @@ fun AddContactFAB(
         modifier = modifier,
         onClick = {
             if (cameraPermissionState.status.isGranted) {
-                zxingScan()
+                mlKitScan()
             } else {
                 cameraPermissionState.launchPermissionRequest()
             }
@@ -188,8 +182,7 @@ val Uri.qrCode: Bitmap?
             val multiFormatWriter = MultiFormatWriter()
             val bitMatrix =
                 multiFormatWriter.encode(this.toString(), BarcodeFormat.QR_CODE, BARCODE_PIXEL_SIZE, BARCODE_PIXEL_SIZE)
-            val barcodeEncoder = BarcodeEncoder()
-            barcodeEncoder.createBitmap(bitMatrix)
+            bitMatrix.toBitmap()
         } catch (ex: WriterException) {
             Logger.e { "URL was too complex to render as barcode: ${ex.message}" }
             null

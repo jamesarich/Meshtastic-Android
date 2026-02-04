@@ -36,10 +36,12 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import android.Manifest
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
 import org.jetbrains.compose.resources.stringResource
 import org.meshtastic.core.strings.Res
 import org.meshtastic.core.strings.advanced
@@ -74,6 +76,7 @@ import org.meshtastic.core.ui.component.ListItem
 import org.meshtastic.core.ui.component.SimpleAlertDialog
 import org.meshtastic.core.ui.component.SwitchPreference
 import org.meshtastic.core.ui.component.TitledCard
+import org.meshtastic.core.ui.qr.MlKitScanContract
 import org.meshtastic.feature.settings.radio.RadioConfigViewModel
 import org.meshtastic.proto.Config
 
@@ -81,6 +84,7 @@ import org.meshtastic.proto.Config
 private fun ScanErrorDialog(onDismiss: () -> Unit = {}) =
     SimpleAlertDialog(title = Res.string.error, text = Res.string.wifi_qr_code_error, onDismiss = onDismiss)
 
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun NetworkConfigScreen(viewModel: RadioConfigViewModel = hiltViewModel(), onBack: () -> Unit) {
     val state by viewModel.radioConfigState.collectAsStateWithLifecycle()
@@ -93,9 +97,9 @@ fun NetworkConfigScreen(viewModel: RadioConfigViewModel = hiltViewModel(), onBac
     }
 
     val barcodeLauncher =
-        rememberLauncherForActivityResult(ScanContract()) { result ->
-            if (result.contents != null) {
-                val (ssid, psk) = extractWifiCredentials(result.contents)
+        rememberLauncherForActivityResult(MlKitScanContract()) { contents ->
+            if (contents != null) {
+                val (ssid, psk) = extractWifiCredentials(contents)
                 if (ssid != null && psk != null) {
                     formState.value = formState.value.copy(wifi_ssid = ssid, wifi_psk = psk)
                 } else {
@@ -104,15 +108,14 @@ fun NetworkConfigScreen(viewModel: RadioConfigViewModel = hiltViewModel(), onBac
             }
         }
 
-    fun zxingScan() {
-        val zxingScan =
-            ScanOptions().apply {
-                setCameraId(0)
-                setPrompt("")
-                setBeepEnabled(false)
-                setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-            }
-        barcodeLauncher.launch(zxingScan)
+    val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
+
+    fun mlKitScan() {
+        if (cameraPermissionState.status.isGranted) {
+            barcodeLauncher.launch(Unit)
+        } else {
+            cameraPermissionState.launchPermissionRequest()
+        }
     }
     val focusManager = LocalFocusManager.current
 
@@ -191,7 +194,7 @@ fun NetworkConfigScreen(viewModel: RadioConfigViewModel = hiltViewModel(), onBac
                     )
                     HorizontalDivider()
                     Button(
-                        onClick = { zxingScan() },
+                        onClick = { mlKitScan() },
                         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).height(48.dp),
                         enabled = state.connected,
                     ) {
