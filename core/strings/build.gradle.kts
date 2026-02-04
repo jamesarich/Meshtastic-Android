@@ -23,8 +23,6 @@ plugins {
 kotlin {
     @Suppress("UnstableApiUsage")
     android { androidResources.enable = true }
-
-    sourceSets { commonTest.dependencies { implementation(kotlin("test")) } }
 }
 
 compose.resources {
