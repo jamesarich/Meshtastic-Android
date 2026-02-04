@@ -70,7 +70,7 @@
     <!-- Needed to open our bluetooth connection to our paired device (after reboot) -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <!-- zxing library for QR Code scanning using camera -->
+    <!-- Camera permission for QR Code scanning -->
     <uses-permission android:name="android.permission.CAMERA" />
 
     <uses-feature
@@ -94,7 +94,7 @@
         </intent>
     </queries>
 
-    <!-- hardware acceleration is required for zxing barcode lib -->
+    <!-- hardware acceleration is required for barcode scanning -->
     <application
         android:name="com.geeksville.mesh.MeshUtilApplication"
         android:allowBackup="false"
@@ -139,11 +139,6 @@
                 android:name="autoStoreLocales"
                 android:value="true" />
         </service>
-
-        <activity
-            android:name="com.journeyapps.barcodescanner.CaptureActivity"
-            android:screenOrientation="unspecified"
-            tools:replace="screenOrientation" />
 
         <activity
             android:name="com.geeksville.mesh.MainActivity"

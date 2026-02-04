@@ -57,9 +57,12 @@ dependencies {
     implementation(libs.androidx.compose.ui.text)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.emoji2.emojipicker)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    compileOnly(libs.mlkit.barcode.scanning)
     implementation(libs.guava)
     implementation(libs.zxing.core)
-    implementation(libs.zxing.android.embedded)
     implementation(libs.kermit)
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)

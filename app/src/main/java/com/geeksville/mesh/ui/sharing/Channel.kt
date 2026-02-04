@@ -90,8 +90,7 @@ import co.touchlab.kermit.Logger
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
+import org.meshtastic.core.ui.qr.MlKitScanContract
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.meshtastic.core.model.Channel
@@ -200,22 +199,17 @@ fun ChannelScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val barcodeLauncher =
-        rememberLauncherForActivityResult(ScanContract()) { result ->
-            if (result.contents != null) {
-                viewModel.requestChannelUrl(result.contents.toUri()) {
+        rememberLauncherForActivityResult(MlKitScanContract()) { contents ->
+            if (contents != null) {
+                viewModel.requestChannelUrl(contents.toUri()) {
                     scope.launch { context.showToast(Res.string.channel_invalid) }
                 }
             }
         }
 
-    fun zxingScan() {
-        Logger.d { "Starting zxing QR code scanner" }
-        val zxingScan = ScanOptions()
-        zxingScan.setCameraId(0)
-        zxingScan.setPrompt("")
-        zxingScan.setBeepEnabled(false)
-        zxingScan.setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-        barcodeLauncher.launch(zxingScan)
+    fun mlKitScan() {
+        Logger.d { "Starting ML Kit QR code scanner" }
+        barcodeLauncher.launch(Unit)
     }
 
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
@@ -368,7 +362,7 @@ fun ChannelScreen(
                     onPositiveClicked = {
                         focusManager.clearFocus()
                         if (cameraPermissionState.status.isGranted) {
-                            zxingScan()
+                            mlKitScan()
                         } else {
                             cameraPermissionState.launchPermissionRequest()
                         }

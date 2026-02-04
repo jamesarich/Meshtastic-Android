@@ -31,6 +31,11 @@ compose-multiplatform = "1.10.0"
 # Google
 hilt = "2.59.1"
 maps-compose = "8.0.1"
+mlkit-barcode-scanning = "17.3.0"
+play-services-mlkit-barcode-scanning = "18.3.1"
+
+# AndroidX
+camerax = "1.4.1"
 
 # Networking
 ktor = "3.4.0"
@@ -54,6 +59,9 @@ dependency-guard = "0.5.0"
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version = "1.12.3" }
 androidx-annotation = { module = "androidx.annotation:annotation", version = "1.9.1" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
+androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
+androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
+androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version = "1.17.0" }
 androidx-core-location-altitude = { module = "androidx.core:core-location-altitude", version = "1.0.0-beta01" }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version = "1.2.0" }
@@ -111,6 +119,8 @@ hilt-android-testing = { module = "com.google.dagger:hilt-android-testing", vers
 hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
 hilt-core = { module = "com.google.dagger:hilt-core", version.ref = "hilt" }
 location-services = { module = "com.google.android.gms:play-services-location", version = "21.3.0" }
+mlkit-barcode-scanning = { module = "com.google.mlkit:barcode-scanning", version.ref = "mlkit-barcode-scanning" }
+play-services-mlkit-barcode-scanning = { module = "com.google.android.gms:play-services-mlkit-barcode-scanning", version.ref = "play-services-mlkit-barcode-scanning" }
 maps-compose = { module = "com.google.maps.android:maps-compose", version.ref = "maps-compose" }
 maps-compose-utils = { module = "com.google.maps.android:maps-compose-utils", version.ref = "maps-compose" }
 maps-compose-widgets = { module = "com.google.maps.android:maps-compose-widgets", version.ref = "maps-compose" }
@@ -177,7 +187,6 @@ osmdroid-geopackage = { module = "org.osmdroid:osmdroid-geopackage", version.ref
 kermit = { module = "co.touchlab:kermit", version = "2.0.8" }
 
 usb-serial-android = { module = "com.github.mik3y:usb-serial-for-android", version = "3.10.0" }
-zxing-android-embedded = { module = "com.journeyapps:zxing-android-embedded", version = "4.3.0" }
 vico-compose = { group = "com.patrykandpatrick.vico", name = "compose", version.ref = "vico" }
 vico-compose-m2 = { group = "com.patrykandpatrick.vico", name = "compose-m2", version.ref = "vico" }
 vico-compose-m3 = { group = "com.patrykandpatrick.vico", name = "compose-m3", version.ref = "vico" }
