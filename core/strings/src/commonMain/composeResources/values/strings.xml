@@ -427,6 +427,7 @@
     <string name="env_metrics_log">Environment Metrics</string>
     <string name="administration">Administration</string>
     <string name="remote_admin">Remote Administration</string>
+    <string name="local_admin">Local Administration</string>
     <string name="bad">Bad</string>
     <string name="fair">Fair</string>
     <string name="good">Good</string>
@@ -792,6 +793,7 @@
     <string name="request">Request</string>
     <string name="requesting_from">Requesting %1$s from %2$s</string>
     <string name="user_info">User info</string>
+    <string name="device_metadata">device metadata</string>
     <string name="request_neighbor_info">NeighborInfo (2.7.15+)</string>
     <string name="request_telemetry">Request Telemetry</string>
     <string name="request_device_metrics">Device Metrics</string>

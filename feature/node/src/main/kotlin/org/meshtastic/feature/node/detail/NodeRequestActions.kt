@@ -30,8 +30,10 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.meshtastic.core.model.Position
 import org.meshtastic.core.model.TelemetryType
+import org.meshtastic.core.service.ServiceAction
 import org.meshtastic.core.service.ServiceRepository
 import org.meshtastic.core.strings.Res
+import org.meshtastic.core.strings.device_metadata
 import org.meshtastic.core.strings.neighbor_info
 import org.meshtastic.core.strings.position
 import org.meshtastic.core.strings.request_air_quality_metrics
@@ -152,6 +154,23 @@ class NodeRequestActions @Inject constructor(private val serviceRepository: Serv
                 )
             } catch (ex: android.os.RemoteException) {
                 Logger.e { "Request traceroute error: ${ex.message}" }
+            }
+        }
+    }
+
+    fun requestMetadata(scope: CoroutineScope, destNum: Int, longName: String) {
+        scope.launch(Dispatchers.IO) {
+            Logger.i { "Requesting device metadata for '$destNum'" }
+            try {
+                serviceRepository.onServiceAction(ServiceAction.GetDeviceMetadata(destNum))
+                _effects.emit(
+                    NodeRequestEffect.ShowFeedback(
+                        Res.string.requesting_from,
+                        listOf(Res.string.device_metadata, longName),
+                    ),
+                )
+            } catch (ex: Exception) {
+                Logger.e { "Request metadata error: ${ex.message}" }
             }
         }
     }
