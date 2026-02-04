@@ -293,6 +293,12 @@ constructor(
                     action.node.num,
                     action.node.user.long_name ?: "",
                 )
+            is NodeMenuAction.RequestMetadata ->
+                nodeRequestActions.requestMetadata(
+                    viewModelScope,
+                    action.node.num,
+                    action.node.user.long_name ?: "",
+                )
             is NodeMenuAction.RequestPosition ->
                 nodeRequestActions.requestPosition(viewModelScope, action.node.num, action.node.user.long_name ?: "")
             is NodeMenuAction.RequestTelemetry ->
