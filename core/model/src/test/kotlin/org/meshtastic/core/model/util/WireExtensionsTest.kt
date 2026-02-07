@@ -19,6 +19,7 @@ package org.meshtastic.core.model.util
 import co.touchlab.kermit.Logger
 import okio.ByteString
 import okio.ByteString.Companion.toByteString
+import org.meshtastic.core.common.byteArrayOfInts
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull

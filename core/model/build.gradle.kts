@@ -54,6 +54,7 @@ afterEvaluate {
 }
 
 dependencies {
+    api(projects.core.common)
     api(projects.core.proto)
 
     api(libs.androidx.annotation)
