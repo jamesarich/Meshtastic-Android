@@ -17,9 +17,9 @@
 
 package org.meshtastic.core.ui.timezone
 
+import kotlinx.datetime.TimeZone
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import java.time.ZoneId
 import java.time.ZoneOffset
 
 class ZoneIdExtensionsTest {
@@ -51,7 +51,7 @@ class ZoneIdExtensionsTest {
                 "Pacific/Auckland" to "NZST-12NZDT,M9.5.0,M4.1.0/3",
             )
 
-        zoneMap.forEach { (tz, expected) -> assertEquals(expected, ZoneId.of(tz).toPosixString()) }
+        zoneMap.forEach { (tz, expected) -> assertEquals(expected, TimeZone.of(tz).toPosixString()) }
     }
 
     @Test

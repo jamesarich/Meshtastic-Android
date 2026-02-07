@@ -24,12 +24,13 @@ import org.meshtastic.core.data.datasource.FirmwareReleaseJsonDataSource
 import org.meshtastic.core.data.datasource.FirmwareReleaseLocalDataSource
 import org.meshtastic.core.database.entity.FirmwareRelease
 import org.meshtastic.core.database.entity.FirmwareReleaseEntity
+import kotlinx.datetime.Clock
 import org.meshtastic.core.database.entity.FirmwareReleaseType
 import org.meshtastic.core.database.entity.asExternalModel
 import org.meshtastic.core.network.FirmwareReleaseRemoteDataSource
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.time.Duration.Companion.hours
 
 @Singleton
 class FirmwareReleaseRepository
@@ -125,9 +126,9 @@ constructor(
 
     /** Extension function to check if the cached entity is stale. */
     private fun FirmwareReleaseEntity.isStale(): Boolean =
-        (System.currentTimeMillis() - this.lastUpdated) > CACHE_EXPIRATION_TIME_MS
+        (Clock.System.now().toEpochMilliseconds() - this.lastUpdated) > CACHE_EXPIRATION_TIME_MS
 
     companion object {
-        private val CACHE_EXPIRATION_TIME_MS = TimeUnit.HOURS.toMillis(1)
+        private val CACHE_EXPIRATION_TIME_MS = 1.hours.inWholeMilliseconds
     }
 }

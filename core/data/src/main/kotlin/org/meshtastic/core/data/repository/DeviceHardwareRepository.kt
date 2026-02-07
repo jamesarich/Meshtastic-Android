@@ -24,12 +24,13 @@ import org.meshtastic.core.data.datasource.DeviceHardwareLocalDataSource
 import org.meshtastic.core.database.entity.DeviceHardwareEntity
 import org.meshtastic.core.database.entity.asExternalModel
 import org.meshtastic.core.di.CoroutineDispatchers
+import kotlinx.datetime.Clock
 import org.meshtastic.core.model.BootloaderOtaQuirk
 import org.meshtastic.core.model.DeviceHardware
 import org.meshtastic.core.network.DeviceHardwareRemoteDataSource
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.time.Duration.Companion.days
 
 // Annotating with Singleton to ensure a single instance manages the cache
 @Singleton
@@ -210,7 +211,7 @@ constructor(
      * automatically healed from newer JSON snapshots even if their timestamp is recent.
      */
     private fun DeviceHardwareEntity.isStale(): Boolean =
-        isIncomplete() || (System.currentTimeMillis() - this.lastUpdated) > CACHE_EXPIRATION_TIME_MS
+        isIncomplete() || (Clock.System.now().toEpochMilliseconds() - this.lastUpdated) > CACHE_EXPIRATION_TIME_MS
 
     private fun loadQuirks(): List<BootloaderOtaQuirk> {
         val quirks = bootloaderOtaQuirksJsonDataSource.loadBootloaderOtaQuirksFromJsonAsset()
@@ -252,6 +253,6 @@ constructor(
     }
 
     companion object {
-        private val CACHE_EXPIRATION_TIME_MS = TimeUnit.DAYS.toMillis(1)
+        private val CACHE_EXPIRATION_TIME_MS = 1.days.inWholeMilliseconds
     }
 }

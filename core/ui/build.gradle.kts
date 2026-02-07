@@ -44,6 +44,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.emoji2.emojipicker)
     implementation(libs.guava)
+    implementation(libs.kotlinx.datetime)
     implementation(libs.zxing.core)
     implementation(libs.kermit)
 

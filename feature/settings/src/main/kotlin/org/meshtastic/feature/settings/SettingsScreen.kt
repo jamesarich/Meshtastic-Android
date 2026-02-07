@@ -117,6 +117,8 @@ import org.meshtastic.feature.settings.radio.RadioConfigViewModel
 import org.meshtastic.feature.settings.radio.component.EditDeviceProfileDialog
 import org.meshtastic.feature.settings.radio.component.PacketResponseStateDialog
 import org.meshtastic.feature.settings.util.LanguageUtils
+import kotlinx.datetime.Clock
+import kotlinx.datetime.toJavaDate
 import org.meshtastic.feature.settings.util.LanguageUtils.languageMap
 import org.meshtastic.proto.DeviceProfile
 import java.text.SimpleDateFormat
@@ -193,7 +195,7 @@ fun SettingsScreen(
                     deviceProfile = it
                     val nodeName = (it.short_name ?: "").ifBlank { "node" }
                     val dateFormat = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.getDefault())
-                    val dateStr = dateFormat.format(java.util.Date())
+                    val dateStr = dateFormat.format(Clock.System.now().toJavaDate())
                     val fileName = "Meshtastic_${nodeName}_${dateStr}_nodeConfig.cfg"
                     val intent =
                         Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
@@ -374,7 +376,7 @@ fun SettingsScreen(
                     summary = stringResource(Res.string.device_db_cache_limit_summary),
                 )
 
-                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Clock.System.now().toJavaDate())
                 val nodeName = ourNode?.user?.short_name ?: ""
 
                 val exportRangeTestLauncher =

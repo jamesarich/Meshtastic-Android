@@ -41,6 +41,7 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime)
+    implementation(libs.kotlinx.datetime)
     implementation(libs.androidx.core.location.altitude)
     implementation(libs.androidx.paging.common)
     implementation(libs.kotlinx.serialization.json)

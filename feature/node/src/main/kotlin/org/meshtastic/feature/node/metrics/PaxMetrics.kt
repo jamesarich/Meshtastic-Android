@@ -84,6 +84,8 @@ import org.meshtastic.core.ui.icon.Paxcount
 import org.meshtastic.core.ui.icon.Refresh
 import org.meshtastic.core.ui.theme.GraphColors.Orange
 import org.meshtastic.core.ui.theme.GraphColors.Purple
+import kotlinx.datetime.Instant
+import kotlinx.datetime.toJavaDate
 import org.meshtastic.feature.node.detail.NodeRequestEffect
 import org.meshtastic.proto.PortNum
 import java.text.DateFormat
@@ -408,7 +410,7 @@ fun PaxMetricsItem(log: MeshLog, pax: ProtoPaxcount, dateFormat: DateFormat, isS
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
             Text(
-                text = dateFormat.format(Date(log.received_date)),
+                text = dateFormat.format(Instant.fromEpochMilliseconds(log.received_date).toJavaDate()),
                 style = MaterialTheme.typography.titleMediumEmphasized,
                 textAlign = TextAlign.End,
                 modifier = Modifier.fillMaxWidth(),

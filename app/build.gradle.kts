@@ -236,6 +236,7 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.coil.svg)
     implementation(libs.androidx.core.splashscreen)
+    implementation(libs.kotlinx.datetime)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.org.eclipse.paho.client.mqttv3)
     implementation(libs.usb.serial.android)

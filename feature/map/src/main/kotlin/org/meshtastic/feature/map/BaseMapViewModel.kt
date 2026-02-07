@@ -43,22 +43,24 @@ import org.meshtastic.core.strings.one_hour
 import org.meshtastic.core.strings.two_days
 import org.meshtastic.core.ui.viewmodel.stateInWhileSubscribed
 import org.meshtastic.feature.map.model.TracerouteOverlay
+import kotlinx.datetime.Clock
 import org.meshtastic.proto.Position
 import org.meshtastic.proto.User
 import org.meshtastic.proto.Waypoint
-import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
 
 @Suppress("MagicNumber")
 sealed class LastHeardFilter(val seconds: Long, val label: StringResource) {
     data object Any : LastHeardFilter(0L, Res.string.any)
 
-    data object OneHour : LastHeardFilter(TimeUnit.HOURS.toSeconds(1), Res.string.one_hour)
+    data object OneHour : LastHeardFilter(1.hours.inWholeSeconds, Res.string.one_hour)
 
-    data object EightHours : LastHeardFilter(TimeUnit.HOURS.toSeconds(8), Res.string.eight_hours)
+    data object EightHours : LastHeardFilter(8.hours.inWholeSeconds, Res.string.eight_hours)
 
-    data object OneDay : LastHeardFilter(TimeUnit.DAYS.toSeconds(1), Res.string.one_day)
+    data object OneDay : LastHeardFilter(1.days.inWholeSeconds, Res.string.one_day)
 
-    data object TwoDays : LastHeardFilter(TimeUnit.DAYS.toSeconds(2), Res.string.two_days)
+    data object TwoDays : LastHeardFilter(2.days.inWholeSeconds, Res.string.two_days)
 
     companion object {
         fun fromSeconds(seconds: Long): LastHeardFilter = entries.find { it.seconds == seconds } ?: Any
@@ -96,7 +98,7 @@ abstract class BaseMapViewModel(
                     .associateBy { packet -> packet.data.waypoint!!.id }
                     .filterValues {
                         val expire = it.data.waypoint!!.expire ?: 0
-                        expire == 0 || expire > System.currentTimeMillis() / 1000
+                        expire == 0 || expire > Clock.System.now().epochSeconds
                     }
             }
             .stateInWhileSubscribed(initialValue = emptyMap())

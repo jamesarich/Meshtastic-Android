@@ -18,6 +18,10 @@
 
 package org.meshtastic.core.ui.timezone
 
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toJavaZoneId
+import kotlinx.datetime.toLocalDateTime
 import java.time.Instant
 import java.time.Year
 import java.time.ZoneId
@@ -29,16 +33,17 @@ import java.util.Locale
 import kotlin.math.abs
 
 /**
- * Generates a POSIX time zone string from a [ZoneId]. Uses the specification found
+ * Generates a POSIX time zone string from a [TimeZone]. Uses the specification found
  * [here](https://www.postgresql.org/docs/current/datetime-posix-timezone-specs.html).
  */
 @Suppress("ReturnCount")
-fun ZoneId.toPosixString(): String {
-    val rules = this.rules
+fun TimeZone.toPosixString(): String {
+    val javaZoneId = this.toJavaZoneId()
+    val rules = javaZoneId.rules
 
     if (rules.isFixedOffset || rules.transitionRules.isEmpty()) {
         val now = Instant.now()
-        val zdt = ZonedDateTime.ofInstant(now, this)
+        val zdt = ZonedDateTime.ofInstant(now, javaZoneId)
         return "${formatAbbreviation(zdt.timeZoneShortName())}${formatPosixOffset(zdt.offset)}"
     }
 
@@ -47,13 +52,13 @@ fun ZoneId.toPosixString(): String {
 
     if (springRule == null || fallRule == null) {
         val now = Instant.now()
-        val zdt = ZonedDateTime.ofInstant(now, this)
+        val zdt = ZonedDateTime.ofInstant(now, javaZoneId)
         return "${formatAbbreviation(zdt.timeZoneShortName())}${formatPosixOffset(zdt.offset)}"
     }
 
     return buildString {
-        val stdAbbrev = getTransitionAbbreviation(this@toPosixString, fallRule)
-        val dstAbbrev = getTransitionAbbreviation(this@toPosixString, springRule)
+        val stdAbbrev = getTransitionAbbreviation(javaZoneId, fallRule)
+        val dstAbbrev = getTransitionAbbreviation(javaZoneId, springRule)
 
         append(formatAbbreviation(stdAbbrev))
         append(formatPosixOffset(springRule.offsetBefore))

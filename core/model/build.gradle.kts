@@ -57,6 +57,7 @@ dependencies {
     api(projects.core.proto)
 
     api(libs.androidx.annotation)
+    api(libs.kotlinx.datetime)
     api(libs.kotlinx.serialization.json)
     implementation(libs.kermit)
     implementation(libs.zxing.core)
