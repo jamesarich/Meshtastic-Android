@@ -18,8 +18,8 @@ package org.meshtastic.core.model
 
 import okio.ByteString
 import okio.ByteString.Companion.toByteString
-import org.meshtastic.core.model.util.byteArrayOfInts
-import org.meshtastic.core.model.util.xorHash
+import org.meshtastic.core.common.byteArrayOfInts
+import org.meshtastic.core.common.xorHash
 import org.meshtastic.proto.ChannelSettings
 import org.meshtastic.proto.Config.LoRaConfig
 import org.meshtastic.proto.Config.LoRaConfig.ModemPreset
