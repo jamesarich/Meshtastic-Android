@@ -32,7 +32,6 @@ import org.meshtastic.core.database.entity.asDeviceVersion
 import org.meshtastic.core.database.model.Node
 import org.meshtastic.core.model.DeviceVersion
 import org.meshtastic.core.navigation.SettingsRoutes
-import org.meshtastic.core.service.ServiceAction
 import org.meshtastic.core.strings.Res
 import org.meshtastic.core.strings.administration
 import org.meshtastic.core.strings.firmware
@@ -40,6 +39,7 @@ import org.meshtastic.core.strings.firmware_edition
 import org.meshtastic.core.strings.installed_firmware_version
 import org.meshtastic.core.strings.latest_alpha_firmware
 import org.meshtastic.core.strings.latest_stable_firmware
+import org.meshtastic.core.strings.local_admin
 import org.meshtastic.core.strings.remote_admin
 import org.meshtastic.core.strings.request_metadata
 import org.meshtastic.core.ui.component.ListItem
@@ -65,15 +65,13 @@ fun AdministrationSection(
                 text = stringResource(Res.string.request_metadata),
                 leadingIcon = Icons.Rounded.Memory,
                 trailingIcon = null,
-                onClick = {
-                    onAction(NodeDetailAction.TriggerServiceAction(ServiceAction.GetDeviceMetadata(node.num)))
-                },
+                onClick = { onAction(NodeDetailAction.HandleNodeMenuAction(NodeMenuAction.RequestMetadata(node))) },
             )
 
             SectionDivider()
 
             ListItem(
-                text = stringResource(Res.string.remote_admin),
+                text = stringResource(if (metricsState.isLocal) Res.string.local_admin else Res.string.remote_admin),
                 leadingIcon = Icons.Rounded.Settings,
                 enabled = metricsState.isLocal || node.metadata != null,
             ) {

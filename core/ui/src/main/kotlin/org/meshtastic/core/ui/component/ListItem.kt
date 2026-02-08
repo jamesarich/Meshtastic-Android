@@ -135,6 +135,7 @@ fun BasicListItem(
     onClick: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
 ) {
+    val alpha = if (enabled) 1f else 0.38f
     ListItem(
         modifier =
         if (onLongClick != null) {
@@ -145,9 +146,10 @@ fun BasicListItem(
             modifier
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        headlineContent = { Text(text = text, color = textColor) },
-        supportingContent = supportingText?.let { { Text(text = it, color = supportingTextColor) } },
-        leadingContent = leadingIcon.icon(leadingIconTint),
+        headlineContent = { Text(text = text, color = textColor.copy(alpha = alpha)) },
+        supportingContent =
+        supportingText?.let { { Text(text = it, color = supportingTextColor.copy(alpha = alpha)) } },
+        leadingContent = leadingIcon.icon(leadingIconTint.copy(alpha = alpha)),
         trailingContent = trailingContent,
     )
 }
