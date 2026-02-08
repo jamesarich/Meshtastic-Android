@@ -20,11 +20,16 @@ import android.os.RemoteException
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import org.meshtastic.core.data.repository.NodeRepository
 import org.meshtastic.core.database.model.Node
 import org.meshtastic.core.service.ServiceAction
 import org.meshtastic.core.service.ServiceRepository
+import org.meshtastic.core.strings.Res
+import org.meshtastic.core.strings.notes_saved
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -35,6 +40,9 @@ constructor(
     private val nodeRepository: NodeRepository,
     private val serviceRepository: ServiceRepository,
 ) {
+    private val _effects = MutableSharedFlow<NodeRequestEffect>()
+    val effects: SharedFlow<NodeRequestEffect> = _effects.asSharedFlow()
+
     fun removeNode(scope: CoroutineScope, nodeNum: Int) {
         scope.launch(Dispatchers.IO) {
             Logger.i { "Removing node '$nodeNum'" }
@@ -82,6 +90,7 @@ constructor(
         scope.launch(Dispatchers.IO) {
             try {
                 nodeRepository.setNodeNotes(nodeNum, notes)
+                _effects.emit(NodeRequestEffect.ShowFeedback(Res.string.notes_saved))
             } catch (ex: java.io.IOException) {
                 Logger.e { "Set node notes IO error: ${ex.message}" }
             } catch (ex: java.sql.SQLException) {

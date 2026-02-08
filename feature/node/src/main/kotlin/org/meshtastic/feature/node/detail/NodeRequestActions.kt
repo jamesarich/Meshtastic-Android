@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.meshtastic.core.model.Position
 import org.meshtastic.core.model.TelemetryType
+import org.meshtastic.core.service.ServiceAction
 import org.meshtastic.core.service.ServiceRepository
 import org.meshtastic.core.strings.Res
 import org.meshtastic.core.strings.neighbor_info
@@ -38,6 +39,7 @@ import org.meshtastic.core.strings.request_air_quality_metrics
 import org.meshtastic.core.strings.request_device_metrics
 import org.meshtastic.core.strings.request_environment_metrics
 import org.meshtastic.core.strings.request_host_metrics
+import org.meshtastic.core.strings.request_metadata
 import org.meshtastic.core.strings.request_pax_metrics
 import org.meshtastic.core.strings.request_power_metrics
 import org.meshtastic.core.strings.requesting_from
@@ -62,6 +64,23 @@ class NodeRequestActions @Inject constructor(private val serviceRepository: Serv
 
     private val _lastRequestNeighborTimes = MutableStateFlow<Map<Int, Long>>(emptyMap())
     val lastRequestNeighborTimes: StateFlow<Map<Int, Long>> = _lastRequestNeighborTimes.asStateFlow()
+
+    fun requestMetadata(scope: CoroutineScope, destNum: Int, longName: String) {
+        scope.launch(Dispatchers.IO) {
+            Logger.i { "Requesting Metadata for '$destNum'" }
+            try {
+                serviceRepository.onServiceAction(ServiceAction.GetDeviceMetadata(destNum))
+                _effects.emit(
+                    NodeRequestEffect.ShowFeedback(
+                        Res.string.requesting_from,
+                        listOf(Res.string.request_metadata, longName),
+                    ),
+                )
+            } catch (ex: Exception) {
+                Logger.e { "Request metadata error: ${ex.message}" }
+            }
+        }
+    }
 
     fun requestUserInfo(scope: CoroutineScope, destNum: Int, longName: String) {
         scope.launch(Dispatchers.IO) {

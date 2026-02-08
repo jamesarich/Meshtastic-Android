@@ -33,6 +33,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.meshtastic.core.data.repository.DeviceHardwareRepository
@@ -271,7 +273,8 @@ constructor(
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), NodeDetailUiState())
 
-    val effects: SharedFlow<NodeRequestEffect> = nodeRequestActions.effects
+    val effects: SharedFlow<NodeRequestEffect> = merge(nodeRequestActions.effects, nodeManagementActions.effects)
+        .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5000))
 
     fun start(nodeId: Int) {
         if (manualNodeId.value != nodeId) {
@@ -289,6 +292,12 @@ constructor(
                 nodeRequestActions.requestUserInfo(viewModelScope, action.node.num, action.node.user.long_name ?: "")
             is NodeMenuAction.RequestNeighborInfo ->
                 nodeRequestActions.requestNeighborInfo(
+                    viewModelScope,
+                    action.node.num,
+                    action.node.user.long_name ?: "",
+                )
+            is NodeMenuAction.RequestMetadata ->
+                nodeRequestActions.requestMetadata(
                     viewModelScope,
                     action.node.num,
                     action.node.user.long_name ?: "",
