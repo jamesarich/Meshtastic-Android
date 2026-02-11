@@ -52,6 +52,9 @@ osmdroid-android = "6.1.20"
 spotless = "8.2.1"
 wire = "6.0.0-alpha02"
 vico = "3.0.0-beta.3"
+letsPlot = "4.8.2"
+letsPlotKotlin = "4.12.1"
+letsPlotCompose = "3.0.2"
 # Removed gradle-doctor
 dependency-guard = "0.5.0"
 nordic-ble = "2.0.0-alpha12"
@@ -203,6 +206,11 @@ usb-serial-android = { module = "com.github.mik3y:usb-serial-for-android", versi
 vico-compose = { group = "com.patrykandpatrick.vico", name = "compose", version.ref = "vico" }
 vico-compose-m2 = { group = "com.patrykandpatrick.vico", name = "compose-m2", version.ref = "vico" }
 vico-compose-m3 = { group = "com.patrykandpatrick.vico", name = "compose-m3", version.ref = "vico" }
+lets-plot-kotlin-kernel = { module = "org.jetbrains.lets-plot:lets-plot-kotlin-kernel", version.ref = "letsPlotKotlin" }
+lets-plot-common = { module = "org.jetbrains.lets-plot:lets-plot-common", version.ref = "letsPlot" }
+lets-plot-canvas = { module = "org.jetbrains.lets-plot:canvas", version.ref = "letsPlot" }
+lets-plot-raster = { module = "org.jetbrains.lets-plot:plot-raster", version.ref = "letsPlot" }
+lets-plot-compose = { module = "org.jetbrains.lets-plot:lets-plot-compose", version.ref = "letsPlotCompose" }
 
 # Build Logic
 android-gradleApiPlugin = { module = "com.android.tools.build:gradle-api", version.ref = "agp" }
