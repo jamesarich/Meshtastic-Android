@@ -16,5 +16,16 @@
  */
 package org.meshtastic.core.repository
 
-/** No-op stub for Location on iOS. */
-actual class Location
+/**
+ * iOS location type backed by CLLocation properties.
+ *
+ * The actual CLLocationManager integration is wired up in the iOS host module's [LocationRepository] implementation via
+ * Koin.
+ */
+actual class Location(
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
+    val altitude: Double = 0.0,
+    val accuracy: Float = 0.0f,
+    val time: Long = 0L,
+)

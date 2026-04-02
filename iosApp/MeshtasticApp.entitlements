@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Associated domains for universal links (meshtastic.org channel/contact URLs) -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:meshtastic.org/e/*</string>
+		<string>applinks:meshtastic.org/v/*</string>
+	</array>
+	<!-- Critical alerts for urgent mesh notifications -->
+	<key>com.apple.developer.usernotifications.critical-alerts</key>
+	<true/>
+	<!-- Sandbox entitlements (required for App Store distribution) -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<!-- Hardware access -->
+	<key>com.apple.security.device.bluetooth</key>
+	<true/>
+	<!-- Network access -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.network.server</key>
+	<true/>
+	<!-- Location -->
+	<key>com.apple.security.personal-information.location</key>
+	<true/>
+</dict>
+</plist>

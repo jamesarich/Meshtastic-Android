@@ -16,45 +16,161 @@
  */
 package org.meshtastic.core.common.util
 
-/** No-op stubs for iOS target in core:common. */
+import platform.Foundation.NSDate
+import platform.Foundation.NSDateFormatter
+import platform.Foundation.NSDateFormatterMediumStyle
+import platform.Foundation.NSDateFormatterShortStyle
+import platform.Foundation.NSLocale
+import platform.Foundation.NSURLComponents
+import platform.Foundation.currentLocale
+import platform.Foundation.dateWithTimeIntervalSince1970
+import platform.Foundation.usesMetricSystem
+import kotlin.math.abs
+
 actual object BuildUtils {
     actual val isEmulator: Boolean = false
     actual val sdkInt: Int = 0
 }
 
-actual class CommonUri(actual val host: String?, actual val fragment: String?, actual val pathSegments: List<String>) {
-    actual fun getQueryParameter(key: String): String? = null
+// region CommonUri — real implementation backed by NSURLComponents
 
-    actual fun getBooleanQueryParameter(key: String, defaultValue: Boolean): Boolean = defaultValue
+actual class CommonUri(
+    actual val host: String?,
+    actual val fragment: String?,
+    actual val pathSegments: List<String>,
+    private val queryItems: Map<String, String>,
+    private val rawString: String,
+) {
+    actual fun getQueryParameter(key: String): String? = queryItems[key]
 
-    actual override fun toString(): String = ""
+    actual fun getBooleanQueryParameter(key: String, defaultValue: Boolean): Boolean {
+        val value = getQueryParameter(key) ?: return defaultValue
+        return value != "false" && value != "0"
+    }
+
+    actual override fun toString(): String = rawString
 
     actual companion object {
-        actual fun parse(uriString: String): CommonUri = CommonUri(null, null, emptyList())
+        actual fun parse(uriString: String): CommonUri {
+            val components = NSURLComponents(string = uriString)
+            val host = components.host
+            val fragment = components.fragment
+            val path = components.path.orEmpty()
+            val pathSegments = path.split('/').filter { it.isNotBlank() }
+            val queryItems = mutableMapOf<String, String>()
+            components.queryItems?.forEach { item ->
+                val qi = item as platform.Foundation.NSURLQueryItem
+                queryItems[qi.name] = qi.value.orEmpty()
+            }
+            return CommonUri(host, fragment, pathSegments, queryItems, uriString)
+        }
     }
 }
 
-actual fun CommonUri.toPlatformUri(): Any = Any()
+actual fun CommonUri.toPlatformUri(): Any = platform.Foundation.NSURL(string = this.toString()) as Any
+
+// endregion
+
+// region DateFormatter — real implementation using NSDateFormatter
+
+private const val MINUTE_MILLIS = 60_000L
+private const val HOUR_MILLIS = 3_600_000L
+private const val DAY_MILLIS = 86_400_000L
+private const val SECONDS_PER_MILLI = 0.001
+
+private fun Long.toNSDate(): NSDate = NSDate.dateWithTimeIntervalSince1970(this * SECONDS_PER_MILLI)
 
 actual object DateFormatter {
-    actual fun formatRelativeTime(timestampMillis: Long): String = ""
+    private fun shortTimeFormatter(): NSDateFormatter = NSDateFormatter().apply {
+        dateStyle = platform.Foundation.NSDateFormatterNoStyle
+        timeStyle = NSDateFormatterShortStyle
+    }
 
-    actual fun formatDateTime(timestampMillis: Long): String = ""
+    private fun mediumTimeFormatter(): NSDateFormatter = NSDateFormatter().apply {
+        dateStyle = platform.Foundation.NSDateFormatterNoStyle
+        timeStyle = NSDateFormatterMediumStyle
+    }
 
-    actual fun formatShortDate(timestampMillis: Long): String = ""
+    private fun shortDateFormatter(): NSDateFormatter = NSDateFormatter().apply {
+        dateStyle = NSDateFormatterShortStyle
+        timeStyle = platform.Foundation.NSDateFormatterNoStyle
+    }
 
-    actual fun formatTime(timestampMillis: Long): String = ""
+    private fun shortDateMediumTimeFormatter(): NSDateFormatter = NSDateFormatter().apply {
+        dateStyle = NSDateFormatterShortStyle
+        timeStyle = NSDateFormatterMediumStyle
+    }
 
-    actual fun formatTimeWithSeconds(timestampMillis: Long): String = ""
+    actual fun formatRelativeTime(timestampMillis: Long): String {
+        val deltaMillis = nowMillis - timestampMillis
+        val absDeltaMillis = abs(deltaMillis)
+        val suffix = if (deltaMillis >= 0) "ago" else "from now"
 
-    actual fun formatDate(timestampMillis: Long): String = ""
+        return when {
+            absDeltaMillis < MINUTE_MILLIS -> if (deltaMillis >= 0) "just now" else "in a moment"
+            absDeltaMillis < HOUR_MILLIS -> "${absDeltaMillis / MINUTE_MILLIS}m $suffix"
+            absDeltaMillis < DAY_MILLIS -> "${absDeltaMillis / HOUR_MILLIS}h $suffix"
+            else -> "${absDeltaMillis / DAY_MILLIS}d $suffix"
+        }
+    }
 
-    actual fun formatDateTimeShort(timestampMillis: Long): String = ""
+    actual fun formatDateTime(timestampMillis: Long): String =
+        shortDateMediumTimeFormatter().stringFromDate(timestampMillis.toNSDate())
+
+    actual fun formatShortDate(timestampMillis: Long): String {
+        val isWithin24Hours = (nowMillis - timestampMillis) <= DAY_MILLIS
+        val date = timestampMillis.toNSDate()
+        return if (isWithin24Hours) {
+            shortTimeFormatter().stringFromDate(date)
+        } else {
+            shortDateFormatter().stringFromDate(date)
+        }
+    }
+
+    actual fun formatTime(timestampMillis: Long): String =
+        shortTimeFormatter().stringFromDate(timestampMillis.toNSDate())
+
+    actual fun formatTimeWithSeconds(timestampMillis: Long): String =
+        mediumTimeFormatter().stringFromDate(timestampMillis.toNSDate())
+
+    actual fun formatDate(timestampMillis: Long): String =
+        shortDateFormatter().stringFromDate(timestampMillis.toNSDate())
+
+    actual fun formatDateTimeShort(timestampMillis: Long): String =
+        shortDateMediumTimeFormatter().stringFromDate(timestampMillis.toNSDate())
 }
 
-actual fun getSystemMeasurementSystem(): MeasurementSystem = MeasurementSystem.METRIC
+// endregion
 
-actual fun String?.isValidAddress(): Boolean = false
+// region Measurement system
+
+actual fun getSystemMeasurementSystem(): MeasurementSystem {
+    val usesMetric = NSLocale.currentLocale.usesMetricSystem
+    return if (usesMetric) MeasurementSystem.METRIC else MeasurementSystem.IMPERIAL
+}
+
+// endregion
+
+// region IP validation
+
+actual fun String?.isValidAddress(): Boolean {
+    val value = this?.trim()
+    return when {
+        value.isNullOrEmpty() -> false
+        value == "localhost" -> true
+        IPV4_PATTERN.matches(value) -> value.split('.').all { segment -> segment.toIntOrNull() in 0..MAX_IPV4_SEGMENT }
+        value.contains(':') -> true // Accept IPv6 syntax on iOS
+        else -> DOMAIN_PATTERN.matches(value)
+    }
+}
+
+private val IPV4_PATTERN = Regex("^(?:\\d{1,3}\\.){3}\\d{1,3}$")
+private val DOMAIN_PATTERN = Regex("^(?=.{1,253}$)(?:(?!-)[A-Za-z0-9-]{1,63}(?<!-)\\.)+[A-Za-z]{2,63}$")
+private const val MAX_IPV4_SEGMENT = 255
+
+// endregion
+
+// region Parcelable — no-op on iOS (no Parcelable concept)
 
 actual interface CommonParcelable
 
@@ -90,3 +206,5 @@ actual class CommonParcel {
 
     actual fun writeByteArray(b: ByteArray?) {}
 }
+
+// endregion

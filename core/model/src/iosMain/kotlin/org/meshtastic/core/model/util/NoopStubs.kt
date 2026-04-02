@@ -16,11 +16,58 @@
  */
 package org.meshtastic.core.model.util
 
-/** No-op stubs for core:model on iOS. */
-actual fun getShortDateTime(time: Long): String = ""
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.UByteVar
+import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.convert
+import kotlinx.cinterop.reinterpret
+import kotlinx.cinterop.usePinned
+import org.meshtastic.core.common.util.DateFormatter
+import platform.CoreCrypto.CC_SHA256
+import platform.CoreCrypto.CC_SHA256_DIGEST_LENGTH
+import platform.Security.SecRandomCopyBytes
+import platform.Security.kSecRandomDefault
 
-actual fun platformRandomBytes(size: Int): ByteArray = ByteArray(size)
+/** Real iOS implementations for core:model. */
+actual fun getShortDateTime(time: Long): String = DateFormatter.formatShortDate(time)
 
+@OptIn(ExperimentalForeignApi::class)
+actual fun platformRandomBytes(size: Int): ByteArray {
+    val bytes = ByteArray(size)
+    bytes.usePinned { pinned -> SecRandomCopyBytes(kSecRandomDefault, size.convert(), pinned.addressOf(0)) }
+    return bytes
+}
+
+@OptIn(ExperimentalForeignApi::class)
 actual object SfppHasher {
-    actual fun computeMessageHash(encryptedPayload: ByteArray, to: Int, from: Int, id: Int): ByteArray = ByteArray(32)
+    private const val HASH_SIZE = 16
+    private const val INT_BYTES = 4
+
+    actual fun computeMessageHash(encryptedPayload: ByteArray, to: Int, from: Int, id: Int): ByteArray {
+        // Build the input buffer: payload + to(LE) + from(LE) + id(LE)
+        val toBytes = to.toLittleEndianBytes()
+        val fromBytes = from.toLittleEndianBytes()
+        val idBytes = id.toLittleEndianBytes()
+
+        val input = encryptedPayload + toBytes + fromBytes + idBytes
+        val digest = ByteArray(CC_SHA256_DIGEST_LENGTH)
+
+        input.usePinned { pinnedInput ->
+            digest.usePinned { pinnedDigest ->
+                CC_SHA256(
+                    pinnedInput.addressOf(0).reinterpret<UByteVar>(),
+                    input.size.convert(),
+                    pinnedDigest.addressOf(0).reinterpret<UByteVar>(),
+                )
+            }
+        }
+        return digest.copyOf(HASH_SIZE)
+    }
+
+    private fun Int.toLittleEndianBytes(): ByteArray = byteArrayOf(
+        (this and 0xFF).toByte(),
+        (this shr 8 and 0xFF).toByte(),
+        (this shr 16 and 0xFF).toByte(),
+        (this shr 24 and 0xFF).toByte(),
+    )
 }

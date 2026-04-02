@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Meshtastic</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<!-- Deep link URL scheme: meshtastic:// -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>org.meshtastic</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>meshtastic</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Encryption export compliance -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<!-- App category -->
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<!-- Bluetooth usage descriptions (required by App Store) -->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Meshtastic uses Bluetooth to connect to nearby mesh radio devices.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Bluetooth is used to connect to your Meshtastic radio for text messaging and GPS on the mesh network.</string>
+	<!-- Bonjour / local network for TCP transport -->
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_meshtastic._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Meshtastic uses local networking to connect to network-based nodes.</string>
+	<!-- Camera for QR-code channel sharing -->
+	<key>NSCameraUsageDescription</key>
+	<string>Meshtastic uses the camera to scan and share channel QR codes.</string>
+	<!-- Location usage descriptions -->
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Meshtastic uses your location to show your position on the mesh map and share GPS coordinates with your radio device. Route Recording requires background location access.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Meshtastic uses your location to show your position on the mesh map and send GPS coordinates to your radio device.</string>
+	<key>NSLocationUsageDescription</key>
+	<string>Meshtastic uses your location to show your position on the mesh map and send GPS coordinates to your radio device.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Meshtastic uses your location to show your position on the mesh map and send GPS coordinates to your radio device.</string>
+	<!-- Supports multi-scene (iPad Stage Manager) -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+	</dict>
+	<!-- Supports indirect input (trackpad, mouse on iPad) -->
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<!-- Background modes: BLE central + location for radio communication -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>bluetooth-central</string>
+		<string>location</string>
+	</array>
+	<!-- Empty launch screen — Compose renders immediately -->
+	<key>UILaunchScreen</key>
+	<dict/>
+	<!-- Device capabilities -->
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
+	<!-- Persistent WiFi for TCP transport -->
+	<key>UIRequiresPersistentWiFi</key>
+	<true/>
+	<!-- Supported orientations (iPhone) -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<!-- Supported orientations (iPad) -->
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+</dict>
+</plist>

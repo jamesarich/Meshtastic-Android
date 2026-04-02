@@ -18,5 +18,6 @@ package org.meshtastic.core.testing
 
 import org.meshtastic.core.repository.Location
 
-/** Creates a placeholder iOS [Location] for testing. */
-actual fun createLocation(latitude: Double, longitude: Double, altitude: Double): Location = Location()
+/** Creates a real iOS [Location] instance for testing with the given coordinates. */
+actual fun createLocation(latitude: Double, longitude: Double, altitude: Double): Location =
+    Location(latitude = latitude, longitude = longitude, altitude = altitude)

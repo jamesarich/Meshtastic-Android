@@ -18,13 +18,17 @@ package org.meshtastic.core.ble
 
 import com.juul.kable.Peripheral
 import com.juul.kable.PeripheralBuilder
+import com.juul.kable.toIdentifier
 
-/** No-op stubs for iOS target in core:ble. */
+/** Real iOS BLE implementation using Kable's CoreBluetooth backend. */
 internal actual fun PeripheralBuilder.platformConfig(device: BleDevice, autoConnect: () -> Boolean) {
-    // No-op for stubs
+    // iOS CoreBluetooth does not have an autoConnect concept like Android.
+    // Kable handles connection strategy internally on iOS.
+    // No additional platform configuration needed.
 }
 
 internal actual fun createPeripheral(address: String, builderAction: PeripheralBuilder.() -> Unit): Peripheral =
-    throw UnsupportedOperationException("iOS Peripheral not yet implemented")
+    com.juul.kable.Peripheral(address.toIdentifier(), builderAction)
 
+// iOS CoreBluetooth negotiates MTU automatically and does not expose it via Kable; fall back to null.
 internal actual fun Peripheral.negotiatedMaxWriteLength(): Int? = null

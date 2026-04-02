@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025-2026 Meshtastic LLC
+ * Copyright (c) 2026 Meshtastic LLC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,18 +14,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package org.meshtastic.feature.settings.radio.component
+package org.meshtastic.ios.di
 
-import androidx.compose.runtime.Composable
-import platform.Foundation.NSTimeZone
-import platform.Foundation.abbreviation
-import platform.Foundation.localTimeZone
+import org.koin.core.annotation.ComponentScan
+import org.koin.core.annotation.Module
 
-@Composable
-actual fun rememberSystemTimeZonePosixString(): String {
-    // NSTimeZone.localTimeZone provides the device's current timezone.
-    // The abbreviation (e.g., "PST", "EST", "GMT+8") is used as a reasonable
-    // fallback. Full POSIX TZ strings require complex offset/DST logic.
-    val tz = NSTimeZone.localTimeZone
-    return tz.abbreviation ?: tz.name
-}
+@Module
+@ComponentScan("org.meshtastic.ios")
+class IosDiModule

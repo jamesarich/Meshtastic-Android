@@ -1,12 +1,12 @@
 # KMP Migration Status
 
-> Last updated: 2026-03-31
+> Last updated: 2026-04-01
 
 Single source of truth for Kotlin Multiplatform migration progress. For the forward-looking roadmap, see [`roadmap.md`](./roadmap.md). For completed decision records, see [`decisions/`](./decisions/).
 
 ## Summary
 
-Meshtastic-Android has completed its **Android-first structural KMP migration** across core logic and feature modules, with **full JVM cross-compilation validated in CI**. The desktop target has a working Navigation 3 shell, TCP transport with full mesh handshake, and multiple features wired with real screens.
+Meshtastic-Android has completed its **Android-first structural KMP migration** across core logic and feature modules, with **full JVM cross-compilation validated in CI**. The desktop target has a working Navigation 3 shell, TCP transport with full mesh handshake, and multiple features wired with real screens. An **iOS module (`ios/`) and Xcode project skeleton (`iosApp/`) have been added**, with all `core:*` and `feature:*` KMP modules compiling cleanly for `iosSimulatorArm64`.
 
 Modules that share JVM-specific code between Android and desktop now standardize on the `meshtastic.kmp.jvm.android` convention plugin, which creates `jvmAndroidMain` via Kotlin's hierarchy template API instead of manual `dependsOn(...)` source-set wiring.
 
@@ -14,44 +14,53 @@ Modules that share JVM-specific code between Android and desktop now standardize
 
 ### Core Modules (21 total)
 
-| Module | KMP? | JVM target? | Notes |
-|---|:---:|:---:|---|
-| `core:proto` | ✅ | ✅ | Protobuf definitions |
-| `core:common` | ✅ | ✅ | Utilities, `jvmAndroidMain` source set |
-| `core:model` | ✅ | ✅ | Domain models, `jvmAndroidMain` source set |
-| `core:repository` | ✅ | ✅ | Domain interfaces |
-| `core:di` | ✅ | ✅ | Dispatchers, qualifiers |
-| `core:navigation` | ✅ | ✅ | Shared Navigation 3 routes |
-| `core:resources` | ✅ | ✅ | Compose Multiplatform resources |
-| `core:datastore` | ✅ | ✅ | Multiplatform DataStore |
-| `core:database` | ✅ | ✅ | Room KMP |
-| `core:domain` | ✅ | ✅ | UseCases |
-| `core:prefs` | ✅ | ✅ | Preferences layer |
-| `core:network` | ✅ | ✅ | Ktor, `StreamFrameCodec`, `TcpTransport`, `SerialTransport`, `BleRadioInterface` |
-| `core:data` | ✅ | ✅ | Data orchestration |
-| `core:ble` | ✅ | ✅ | Kable multiplatform BLE abstractions in commonMain |
-| `core:nfc` | ✅ | ✅ | NFC contract in commonMain; hardware in androidMain |
-| `core:service` | ✅ | ✅ | Service layer; Android bindings in androidMain |
-| `core:ui` | ✅ | ✅ | Shared Compose UI, pure KMP QR generator, `jvmAndroidMain` + `jvmMain` actuals |
-| `core:testing` | ✅ | ✅ | Shared test doubles, fakes, and utilities for `commonTest` |
-| `core:takserver` | ✅ | ✅ | TAK/ATAK integration, Fountain codec |
-| `core:api` | ❌ | — | Android-only (AIDL). Intentional. |
-| `core:barcode` | ❌ | — | Android-only (CameraX). Flavor split minimised to decoder factory only (ML Kit / ZXing). Shared contract in `core:ui`. |
+| Module | KMP? | JVM target? | iOS target? | Notes |
+|---|:---:|:---:|:---:|---|
+| `core:proto` | ✅ | ✅ | ✅ | Protobuf definitions |
+| `core:common` | ✅ | ✅ | ✅ | Utilities, `jvmAndroidMain` source set |
+| `core:model` | ✅ | ✅ | ✅ | Domain models, `jvmAndroidMain` source set |
+| `core:repository` | ✅ | ✅ | ✅ | Domain interfaces |
+| `core:di` | ✅ | ✅ | ✅ | Dispatchers, qualifiers |
+| `core:navigation` | ✅ | ✅ | ✅ | Shared Navigation 3 routes |
+| `core:resources` | ✅ | ✅ | ✅ | Compose Multiplatform resources |
+| `core:datastore` | ✅ | ✅ | ✅ | Multiplatform DataStore |
+| `core:database` | ✅ | ✅ | ✅ | Room KMP |
+| `core:domain` | ✅ | ✅ | ✅ | UseCases |
+| `core:prefs` | ✅ | ✅ | ✅ | Preferences layer |
+| `core:network` | ✅ | ✅ | ✅ | Ktor, `StreamFrameCodec`, `TcpTransport`, `SerialTransport`, `BleRadioInterface` |
+| `core:data` | ✅ | ✅ | ✅ | Data orchestration |
+| `core:ble` | ✅ | ✅ | ✅ | Kable multiplatform BLE abstractions in commonMain |
+| `core:nfc` | ✅ | ✅ | ✅ | NFC contract in commonMain; hardware in androidMain |
+| `core:service` | ✅ | ✅ | ✅ | Service layer; Android bindings in androidMain |
+| `core:ui` | ✅ | ✅ | ✅ | Shared Compose UI, pure KMP QR generator, `jvmAndroidMain` + `jvmMain` actuals |
+| `core:testing` | ✅ | ✅ | ✅ | Shared test doubles, fakes, and utilities for `commonTest` |
+| `core:takserver` | ✅ | ✅ | ✅ | TAK/ATAK integration, Fountain codec |
+| `core:api` | ❌ | — | — | Android-only (AIDL). Intentional. |
+| `core:barcode` | ❌ | — | — | Android-only (CameraX). Flavor split minimised to decoder factory only (ML Kit / ZXing). Shared contract in `core:ui`. |
 
-**19/21** core modules are KMP with JVM targets. The 2 Android-only modules are intentionally platform-specific, with shared contracts already abstracted into `core:ui/commonMain`.
+**19/21** core modules are KMP with JVM and iOS targets. The 2 Android-only modules are intentionally platform-specific, with shared contracts already abstracted into `core:ui/commonMain`.
 
-### Feature Modules (8 total — 8 KMP with JVM, 1 Android-only widget)
+### Feature Modules (8 total — 8 KMP with JVM + iOS, 1 Android-only widget)
 
-| Module | UI in commonMain? | Desktop wired? |
-|---|:---:|:---:|
-| `feature:settings` | ✅ | ✅ ~35 real screens; fully shared `settingsGraph` and UI |
-| `feature:node` | ✅ | ✅ Adaptive list-detail; fully shared `nodesGraph`, `PositionLogScreen`, and `NodeContextMenu` |
-| `feature:messaging` | ✅ | ✅ Adaptive contacts + messages; fully shared `contactsGraph`, `MessageScreen`, `ContactsScreen`, and `MessageListPaged` |
-| `feature:connections` | ✅ | ✅ Shared `ConnectionsScreen` with dynamic transport detection |
-| `feature:intro` | — | — | Screens remain in `androidMain`; shared ViewModel only |
-| `feature:map` | — | Placeholder; shared `NodeMapViewModel` and `BaseMapViewModel` only |
-| `feature:firmware` | ✅ | ✅ Fully KMP: Unified OTA, native Secure DFU, USB/UF2, FirmwareRetriever |
-| `feature:widget` | ❌ | — | Android-only (Glance appwidgets). Intentional. |
+| Module | UI in commonMain? | Desktop wired? | iOS compiles? |
+|---|:---:|:---:|:---:|
+| `feature:settings` | ✅ | ✅ ~35 real screens; fully shared `settingsGraph` and UI | ✅ |
+| `feature:node` | ✅ | ✅ Adaptive list-detail; fully shared `nodesGraph`, `PositionLogScreen`, and `NodeContextMenu` | ✅ |
+| `feature:messaging` | ✅ | ✅ Adaptive contacts + messages; fully shared `contactsGraph`, `MessageScreen`, `ContactsScreen`, and `MessageListPaged` | ✅ |
+| `feature:connections` | ✅ | ✅ Shared `ConnectionsScreen` with dynamic transport detection | ✅ |
+| `feature:intro` | — | — | Screens remain in `androidMain`; shared ViewModel only | ✅ |
+| `feature:map` | — | Placeholder; shared `NodeMapViewModel` and `BaseMapViewModel` only | ✅ |
+| `feature:firmware` | ✅ | ✅ Fully KMP: Unified OTA, native Secure DFU, USB/UF2, FirmwareRetriever | ✅ |
+| `feature:widget` | ❌ | — | Android-only (Glance appwidgets). Intentional. | — |
+
+### iOS Module (`ios/` + `iosApp/`)
+
+KMP iOS host shell skeleton — mirrors the `desktop/` module pattern:
+
+- `ios/` — KMP module (pure iOS targets: `iosArm64`, `iosSimulatorArm64`). Uses Compose Multiplatform for UI (no SwiftUI). Thin Koin DI wiring with stubs for all platform services (BLE, location, clipboard, etc.).
+- `iosApp/MeshtasticApp.xcodeproj` — Xcode project skeleton: `@main` SwiftUI struct wrapping `MainViewController()` (Kotlin's `ComposeUIViewController`), `Info.plist` with BLE/location/camera/URL background modes, `MeshtasticApp.entitlements`, and build phase script invoking `./gradlew :ios:embedAndSignAppleFrameworkForXcode`.
+- All `iosSimulatorArm64` targets compile cleanly (`kmpSmokeCompile` passes).
+- Real hardware transport (Kable CoreBluetooth), CLLocationManager, and UIActivityViewController file export are TODO stubs.
 
 ### Desktop Module
 
@@ -76,6 +85,7 @@ Working Compose Desktop application with:
 | Shared feature/UI logic | **9/10** | 8 KMP feature modules; firmware fully migrated; `feature:intro` and `feature:map` share ViewModels but UI remains in `androidMain` |
 | Android decoupling | **9/10** | No known `java.*` calls in `commonMain`; app module extraction in progress (navigation, connections, background services, and widgets extracted) |
 | Multi-target readiness | **9/10** | Full JVM; release-ready desktop; iOS simulator builds compiling successfully |
+| iOS target | **5/10** | All modules compile for `iosSimulatorArm64`; host shell (`ios/`) and Xcode project (`iosApp/`) created; hardware services (BLE, location) are stubs; not yet runnable on device/simulator |
 | CI confidence | **9/10** | 25 modules validated (including feature:connections); native release installers automated |
 | DI portability | **8/10** | Koin annotations in commonMain; supportedDeviceTypes injected per platform |
 | Test maturity | **9/10** | Mokkery, Turbine, and Kotest integrated; property-based testing established; broad coverage across all 8 features |
@@ -89,8 +99,9 @@ Working Compose Desktop application with:
 | Android-first structural KMP | ~100% |
 | Shared business logic | ~98% |
 | Shared feature/UI | ~92% |
-| True multi-target readiness | ~85% |
+| True multi-target readiness | ~88% |
 | "Add iOS without surprises" | ~100% |
+| iOS runnable on device/simulator | ~30% |
 
 ## Proposed Next Steps for KMP Migration
 
@@ -98,7 +109,7 @@ Based on the latest codebase investigation, the following steps are proposed to 
 
 1. **Wire Desktop Features:** Complete desktop UI wiring for `feature:intro` and implement a shared fallback for `feature:map` (which is currently a placeholder on desktop).
 2. **Flesh out iOS Actuals:** Complete the actual implementations for iOS UI stubs (e.g., `AboutLibrariesLoader`, `rememberOpenMap`, `SettingsMainScreen`) that were recently added to unblock iOS compilation.
-3. **Boot iOS Target:** Set up an initial skeleton Xcode project to start running the now-compiling `iosSimulatorArm64` / `iosArm64` binaries on a real simulator/device.
+3. **Boot iOS on Device:** Wire `CLLocationManager`, Kable CoreBluetooth `IosRadioTransportFactory`, and `UIActivityViewController` file export in the `ios/` module, then validate on a real simulator/device via the `iosApp/` Xcode project.
 
 ## Key Architecture Decisions
 

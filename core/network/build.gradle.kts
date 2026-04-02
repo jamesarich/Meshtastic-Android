@@ -60,6 +60,8 @@ kotlin {
 
         androidMain.dependencies { implementation(libs.usb.serial.android) }
 
+        val iosMain by getting { dependencies { implementation(libs.ktor.client.darwin) } }
+
         commonTest.dependencies {
             implementation(projects.core.testing)
             implementation(libs.kotlinx.coroutines.test)

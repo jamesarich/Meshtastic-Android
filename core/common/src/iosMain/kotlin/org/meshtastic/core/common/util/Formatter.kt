@@ -16,7 +16,27 @@
  */
 package org.meshtastic.core.common.util
 
-/** Apple (iOS) implementation of string formatting. Stub implementation for compile-only validation. */
-actual fun formatString(pattern: String, vararg args: Any?): String = throw UnsupportedOperationException(
-    "formatString is not supported on iOS at runtime; this target is intended for compile-only validation.",
-)
+import platform.Foundation.NSString
+import platform.Foundation.stringWithFormat
+
+/** Apple (iOS) implementation of string formatting using NSString.stringWithFormat. */
+@Suppress("SpreadOperator")
+actual fun formatString(pattern: String, vararg args: Any?): String {
+    // NSString.stringWithFormat only supports a single vararg in Kotlin/Native interop.
+    // We handle the common cases explicitly to avoid the interop limitation.
+    return when (args.size) {
+        0 -> pattern
+        1 -> NSString.stringWithFormat(pattern, args[0])
+        2 -> NSString.stringWithFormat(pattern, args[0], args[1])
+        3 -> NSString.stringWithFormat(pattern, args[0], args[1], args[2])
+        4 -> NSString.stringWithFormat(pattern, args[0], args[1], args[2], args[3])
+        else -> {
+            // Fallback: manual substitution for simple %s / %d / %f patterns
+            var result = pattern
+            for (arg in args) {
+                result = result.replaceFirst(Regex("%[sdfSDF@]"), arg.toString())
+            }
+            result
+        }
+    }
+}

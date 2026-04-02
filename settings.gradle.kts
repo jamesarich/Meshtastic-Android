@@ -48,6 +48,7 @@ include(
     ":feature:widget",
     ":mesh_service_example",
     ":desktop",
+    ":ios",
 )
 rootProject.name = "MeshtasticAndroid"
 
