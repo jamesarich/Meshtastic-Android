@@ -20,11 +20,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,8 +33,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
@@ -52,7 +49,6 @@ import org.meshtastic.core.ui.component.MaterialBatteryInfo
 import org.meshtastic.core.ui.component.NodeChip
 import org.meshtastic.core.ui.component.Rssi
 import org.meshtastic.core.ui.theme.AppTheme
-import org.meshtastic.core.ui.theme.StatusColors.StatusRed
 import org.meshtastic.feature.connections.model.DeviceListEntry
 import org.meshtastic.proto.EnvironmentMetrics
 import org.meshtastic.proto.Paxcount
@@ -124,14 +120,9 @@ fun CurrentlyConnectedInfo(
             }
         }
 
-        Button(
-            shape = RectangleShape,
-            modifier = Modifier.fillMaxWidth().height(40.dp),
-            colors =
-            ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.StatusRed,
-                contentColor = Color.White,
-            ),
+        OutlinedButton(
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
             onClick = onClickDisconnect,
         ) {
             Text(stringResource(Res.string.disconnect))

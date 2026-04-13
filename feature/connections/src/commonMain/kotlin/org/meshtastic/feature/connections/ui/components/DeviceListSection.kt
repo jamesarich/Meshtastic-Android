@@ -31,7 +31,8 @@ import org.meshtastic.core.model.ConnectionState
 import org.meshtastic.feature.connections.model.DeviceListEntry
 
 @Composable
-fun List<DeviceListEntry>.DeviceListSection(
+fun DeviceListSection(
+    devices: List<DeviceListEntry>,
     title: String,
     connectionState: ConnectionState,
     selectedDevice: String,
@@ -39,16 +40,16 @@ fun List<DeviceListEntry>.DeviceListSection(
     modifier: Modifier = Modifier,
     onDelete: ((DeviceListEntry) -> Unit)? = null,
 ) {
-    if (isNotEmpty()) {
+    if (devices.isNotEmpty()) {
         Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(
                 text = title,
                 modifier = Modifier.padding(horizontal = 8.dp).fillMaxWidth(),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            this@DeviceListSection.forEach { device ->
+            devices.forEach { device ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.large,

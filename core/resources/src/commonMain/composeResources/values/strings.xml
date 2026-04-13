@@ -933,7 +933,13 @@
     <string name="firmware_edition">Firmware Edition</string>
     <string name="recent_network_devices">Recent Network Devices</string>
     <string name="discovered_network_devices">Discovered Network Devices</string>
+    <string name="scan_network_devices">Scan for network devices</string>
+    <string name="scanning_network">Scanning…</string>
+    <string name="scan_bluetooth_devices">Scan for Bluetooth devices</string>
+    <string name="scanning_bluetooth">Scanning…</string>
     <string name="bluetooth_available_devices">Available Bluetooth Devices</string>
+    <string name="add_network_device_manually">Add device manually…</string>
+    <string name="no_devices_found">No devices found</string>
 
     <string name="get_started">Get started</string>
     <string name="intro_welcome">Welcome to</string>

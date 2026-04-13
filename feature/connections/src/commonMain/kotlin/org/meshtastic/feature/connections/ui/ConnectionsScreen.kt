@@ -25,14 +25,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,7 +48,6 @@ import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.meshtastic.core.model.ConnectionState
-import org.meshtastic.core.model.DeviceType
 import org.meshtastic.core.navigation.Route
 import org.meshtastic.core.navigation.SettingsRoute
 import org.meshtastic.core.resources.Res
@@ -63,6 +61,7 @@ import org.meshtastic.core.resources.no_device_selected
 import org.meshtastic.core.resources.not_connected
 import org.meshtastic.core.resources.set_your_region
 import org.meshtastic.core.resources.unknown_device
+import org.meshtastic.core.ui.component.AdaptiveTwoPane
 import org.meshtastic.core.ui.component.ListItem
 import org.meshtastic.core.ui.component.MainAppBar
 import org.meshtastic.core.ui.component.TitledCard
@@ -73,13 +72,10 @@ import org.meshtastic.core.ui.viewmodel.ConnectionsViewModel
 import org.meshtastic.feature.connections.NO_DEVICE_SELECTED
 import org.meshtastic.feature.connections.ScannerViewModel
 import org.meshtastic.feature.connections.model.DeviceListEntry
-import org.meshtastic.feature.connections.ui.components.BLEDevices
 import org.meshtastic.feature.connections.ui.components.ConnectingDeviceInfo
-import org.meshtastic.feature.connections.ui.components.ConnectionsSegmentedBar
 import org.meshtastic.feature.connections.ui.components.CurrentlyConnectedInfo
+import org.meshtastic.feature.connections.ui.components.DeviceList
 import org.meshtastic.feature.connections.ui.components.EmptyStateContent
-import org.meshtastic.feature.connections.ui.components.NetworkDevices
-import org.meshtastic.feature.connections.ui.components.UsbDevices
 import org.meshtastic.feature.settings.navigation.ConfigRoute
 import org.meshtastic.feature.settings.navigation.getNavRouteFrom
 import org.meshtastic.feature.settings.radio.RadioConfigViewModel
@@ -111,6 +107,16 @@ fun ConnectionsScreen(
     val discoveredTcpDevices by scanModel.discoveredTcpDevicesForUi.collectAsStateWithLifecycle()
     val recentTcpDevices by scanModel.recentTcpDevicesForUi.collectAsStateWithLifecycle()
     val usbDevices by scanModel.usbDevicesForUi.collectAsStateWithLifecycle()
+    val isBleScanning by scanModel.isBleScanning.collectAsStateWithLifecycle()
+    val isNetworkScanning by scanModel.isNetworkScanning.collectAsStateWithLifecycle()
+
+    // Stop scans when the screen leaves the composition
+    DisposableEffect(Unit) {
+        onDispose {
+            scanModel.stopBleScan()
+            scanModel.stopNetworkScan()
+        }
+    }
 
     /* Animate waiting for the configurations */
     var isWaiting by remember { mutableStateOf(false) }
@@ -165,114 +171,86 @@ fun ConnectionsScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Spacer(modifier = Modifier.height(4.dp))
-                val uiState =
-                    when {
-                        connectionState is ConnectionState.Connected && ourNode != null ->
-                            ConnectionUiState.CONNECTED_WITH_NODE
 
-                        connectionState is ConnectionState.Connected ||
-                            connectionState == ConnectionState.Connecting ||
-                            selectedDevice != NO_DEVICE_SELECTED -> ConnectionUiState.CONNECTING
+                AdaptiveTwoPane(
+                    first = {
+                        val uiState =
+                            when {
+                                connectionState is ConnectionState.Connected && ourNode != null ->
+                                    ConnectionUiState.CONNECTED_WITH_NODE
 
-                        else -> ConnectionUiState.NO_DEVICE
-                    }
+                                connectionState is ConnectionState.Connected ||
+                                    connectionState == ConnectionState.Connecting ||
+                                    selectedDevice != NO_DEVICE_SELECTED -> ConnectionUiState.CONNECTING
 
-                Crossfade(targetState = uiState, label = "connection_state") { state ->
-                    when (state) {
-                        ConnectionUiState.CONNECTED_WITH_NODE ->
-                            ConnectedDeviceContent(
-                                ourNode = ourNode,
-                                regionUnset = regionUnset,
-                                selectedDevice = selectedDevice,
-                                bleDevices = bleDevices,
-                                onNavigateToNodeDetails = onNavigateToNodeDetails,
-                                onClickDisconnect = { scanModel.disconnect() },
-                                onSetRegion = {
-                                    isWaiting = true
-                                    radioConfigViewModel.setResponseStateLoading(ConfigRoute.LORA)
-                                },
-                            )
+                                else -> ConnectionUiState.NO_DEVICE
+                            }
 
-                        ConnectionUiState.CONNECTING ->
-                            ConnectingDeviceContent(
+                        Crossfade(targetState = uiState, label = "connection_state") { state ->
+                            when (state) {
+                                ConnectionUiState.CONNECTED_WITH_NODE ->
+                                    ConnectedDeviceContent(
+                                        ourNode = ourNode,
+                                        regionUnset = regionUnset,
+                                        selectedDevice = selectedDevice,
+                                        bleDevices = bleDevices,
+                                        onNavigateToNodeDetails = onNavigateToNodeDetails,
+                                        onClickDisconnect = { scanModel.disconnect() },
+                                        onSetRegion = {
+                                            isWaiting = true
+                                            radioConfigViewModel.setResponseStateLoading(ConfigRoute.LORA)
+                                        },
+                                    )
+
+                                ConnectionUiState.CONNECTING ->
+                                    ConnectingDeviceContent(
+                                        connectionState = connectionState,
+                                        selectedDevice = selectedDevice,
+                                        persistedDeviceName = persistedDeviceName,
+                                        bleDevices = bleDevices,
+                                        discoveredTcpDevices = discoveredTcpDevices,
+                                        recentTcpDevices = recentTcpDevices,
+                                        usbDevices = usbDevices,
+                                        onClickDisconnect = { scanModel.disconnect() },
+                                    )
+
+                                else -> NoDeviceContent()
+                            }
+                        }
+                    },
+                    second = {
+                        // ── Unified device list ──
+                        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                            DeviceList(
                                 connectionState = connectionState,
                                 selectedDevice = selectedDevice,
-                                persistedDeviceName = persistedDeviceName,
                                 bleDevices = bleDevices,
+                                usbDevices = usbDevices,
                                 discoveredTcpDevices = discoveredTcpDevices,
                                 recentTcpDevices = recentTcpDevices,
-                                usbDevices = usbDevices,
-                                onClickDisconnect = { scanModel.disconnect() },
-                            )
-
-                        else -> NoDeviceContent()
-                    }
-                }
-
-                var selectedDeviceType by remember { mutableStateOf(DeviceType.BLE) }
-                LaunchedEffect(selectedDevice) {
-                    DeviceType.fromAddress(selectedDevice)?.let { selectedDeviceType = it }
-                }
-
-                val supportedDeviceTypes = scanModel.supportedDeviceTypes
-
-                // Fallback to a supported type if the current one isn't
-                LaunchedEffect(supportedDeviceTypes) {
-                    if (selectedDeviceType !in supportedDeviceTypes && supportedDeviceTypes.isNotEmpty()) {
-                        selectedDeviceType = supportedDeviceTypes.first()
-                    }
-                }
-
-                ConnectionsSegmentedBar(
-                    selectedDeviceType = selectedDeviceType,
-                    supportedDeviceTypes = supportedDeviceTypes,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    selectedDeviceType = it
-                }
-
-                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    when (selectedDeviceType) {
-                        DeviceType.BLE -> {
-                            BLEDevices(
-                                connectionState = connectionState,
-                                selectedDevice = selectedDevice,
-                                scanModel = scanModel,
+                                isBleScanning = isBleScanning,
+                                isNetworkScanning = isNetworkScanning,
+                                onSelectDevice = { scanModel.onSelected(it) },
+                                onToggleBleScan = {
+                                    if (isBleScanning) scanModel.stopBleScan() else scanModel.startBleScan()
+                                },
+                                onToggleNetworkScan = {
+                                    if (isNetworkScanning) {
+                                        scanModel.stopNetworkScan()
+                                    } else {
+                                        scanModel.startNetworkScan()
+                                    }
+                                },
+                                onAddManualAddress = { _, fullAddress ->
+                                    val displayAddress = fullAddress.removePrefix("t")
+                                    scanModel.addRecentAddress(fullAddress, displayAddress)
+                                    scanModel.changeDeviceAddress(fullAddress)
+                                },
+                                onRemoveRecentAddress = { scanModel.removeRecentAddress(it.fullAddress) },
                             )
                         }
-
-                        DeviceType.TCP -> {
-                            Column(
-                                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-                                verticalArrangement = Arrangement.spacedBy(16.dp),
-                            ) {
-                                NetworkDevices(
-                                    connectionState = connectionState,
-                                    discoveredNetworkDevices = discoveredTcpDevices,
-                                    recentNetworkDevices = recentTcpDevices,
-                                    selectedDevice = selectedDevice,
-                                    scanModel = scanModel,
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                            }
-                        }
-
-                        DeviceType.USB -> {
-                            Column(
-                                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-                                verticalArrangement = Arrangement.spacedBy(16.dp),
-                            ) {
-                                UsbDevices(
-                                    connectionState = connectionState,
-                                    usbDevices = usbDevices,
-                                    selectedDevice = selectedDevice,
-                                    scanModel = scanModel,
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                            }
-                        }
-                    }
-                }
+                    },
+                )
             }
             scanStatusText?.let {
                 Card(

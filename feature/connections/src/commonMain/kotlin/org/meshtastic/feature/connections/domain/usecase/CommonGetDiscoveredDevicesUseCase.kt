@@ -18,11 +18,12 @@ package org.meshtastic.feature.connections.domain.usecase
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import org.koin.core.annotation.Single
 import org.meshtastic.core.common.database.DatabaseManager
 import org.meshtastic.core.common.util.safeCatchingAll
 import org.meshtastic.core.datastore.RecentAddressesDataSource
-import org.meshtastic.core.network.repository.NetworkRepository
+import org.meshtastic.core.network.repository.DiscoveredService
 import org.meshtastic.core.repository.NodeRepository
 import org.meshtastic.core.resources.Res
 import org.meshtastic.core.resources.demo_mode
@@ -37,46 +38,42 @@ class CommonGetDiscoveredDevicesUseCase(
     private val recentAddressesDataSource: RecentAddressesDataSource,
     private val nodeRepository: NodeRepository,
     private val databaseManager: DatabaseManager,
-    private val networkRepository: NetworkRepository,
     private val usbScanner: UsbScanner? = null,
 ) : GetDiscoveredDevicesUseCase {
 
-    override fun invoke(showMock: Boolean): Flow<DiscoveredDevices> {
+    override fun invoke(showMock: Boolean, resolvedList: Flow<List<DiscoveredService>>): Flow<DiscoveredDevices> {
         val nodeDb = nodeRepository.nodeDBbyNum
-        val usbFlow = usbScanner?.scanUsbDevices() ?: kotlinx.coroutines.flow.flowOf(emptyList())
+        val usbFlow = usbScanner?.scanUsbDevices() ?: flowOf(emptyList())
 
         val processedTcpFlow =
-            combine(networkRepository.resolvedList, recentAddressesDataSource.recentAddresses) {
-                    tcpServices,
-                    recentList,
-                ->
+            combine(resolvedList, recentAddressesDataSource.recentAddresses) { tcpServices, recentList ->
                 val defaultName = safeCatchingAll { getStringSuspend(Res.string.meshtastic) }.getOrDefault("Meshtastic")
                 processTcpServices(tcpServices, recentList, defaultName)
             }
 
-        return combine(
-            nodeDb,
-            processedTcpFlow,
-            networkRepository.resolvedList,
-            recentAddressesDataSource.recentAddresses,
-            usbFlow,
-        ) { db, processedTcp, resolved, recentList, usbList ->
+        return combine(nodeDb, processedTcpFlow, resolvedList, recentAddressesDataSource.recentAddresses, usbFlow) {
+                db,
+                processedTcp,
+                resolved,
+                recentList,
+                usbList,
+            ->
             val discoveredTcpForUi = matchDiscoveredTcpNodes(processedTcp, db, resolved, databaseManager)
             val discoveredTcpAddresses = processedTcp.map { it.fullAddress }.toSet()
             val recentTcpForUi = buildRecentTcpEntries(recentList, discoveredTcpAddresses, db, databaseManager)
 
+            val mockEntries =
+                if (showMock) {
+                    val label = safeCatchingAll { getStringSuspend(Res.string.demo_mode) }.getOrDefault("Demo Mode")
+                    listOf(DeviceListEntry.Mock(label))
+                } else {
+                    emptyList()
+                }
+
             DiscoveredDevices(
                 discoveredTcpDevices = discoveredTcpForUi,
                 recentTcpDevices = recentTcpForUi,
-                usbDevices =
-                usbList +
-                    if (showMock) {
-                        val demoModeLabel =
-                            safeCatchingAll { getStringSuspend(Res.string.demo_mode) }.getOrDefault("Demo Mode")
-                        listOf(DeviceListEntry.Mock(demoModeLabel))
-                    } else {
-                        emptyList()
-                    },
+                usbDevices = usbList + mockEntries,
             )
         }
     }

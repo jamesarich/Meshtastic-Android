@@ -20,19 +20,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
 import org.meshtastic.core.model.ConnectionState
@@ -40,7 +37,6 @@ import org.meshtastic.core.resources.Res
 import org.meshtastic.core.resources.connected
 import org.meshtastic.core.resources.connecting
 import org.meshtastic.core.resources.disconnect
-import org.meshtastic.core.ui.theme.StatusColors.StatusRed
 
 /**
  * Displays the currently connecting (or connected) device with its name, address, connection status, and a disconnect
@@ -79,14 +75,9 @@ fun ConnectingDeviceInfo(
             }
         }
 
-        Button(
-            shape = RectangleShape,
-            modifier = Modifier.fillMaxWidth().height(40.dp),
-            colors =
-            ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.StatusRed,
-                contentColor = Color.White,
-            ),
+        OutlinedButton(
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
             onClick = onClickDisconnect,
         ) {
             Text(stringResource(Res.string.disconnect))

@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
@@ -33,6 +34,7 @@ import org.meshtastic.core.datastore.RecentAddressesDataSource
 import org.meshtastic.core.datastore.model.RecentAddress
 import org.meshtastic.core.model.RadioController
 import org.meshtastic.core.model.util.anonymize
+import org.meshtastic.core.network.repository.NetworkRepository
 import org.meshtastic.core.repository.RadioInterfaceService
 import org.meshtastic.core.repository.RadioPrefs
 import org.meshtastic.core.repository.ServiceRepository
@@ -49,6 +51,7 @@ open class ScannerViewModel(
     private val radioPrefs: RadioPrefs,
     private val recentAddressesDataSource: RecentAddressesDataSource,
     private val getDiscoveredDevicesUseCase: GetDiscoveredDevicesUseCase,
+    private val networkRepository: NetworkRepository,
     private val dispatchers: org.meshtastic.core.di.CoroutineDispatchers,
     private val bleScanner: org.meshtastic.core.ble.BleScanner? = null,
 ) : ViewModel() {
@@ -101,10 +104,31 @@ open class ScannerViewModel(
         isBleScanningState.value = false
     }
 
+    private val _isNetworkScanning = MutableStateFlow(false)
+    val isNetworkScanning: StateFlow<Boolean> = _isNetworkScanning.asStateFlow()
+
+    /**
+     * The resolved NSD services flow, gated by [_isNetworkScanning]. When scanning is inactive, this emits
+     * `emptyList()` so `NsdManager.discoverServices()` is never triggered. On Android 15+ subscribing to the real
+     * `resolvedList` shows a system consent dialog, so this ensures NSD only runs when the user explicitly requests it.
+     */
+    private val gatedResolvedList =
+        _isNetworkScanning.flatMapLatest { scanning ->
+            if (scanning) networkRepository.resolvedList else flowOf(emptyList())
+        }
+
     private val discoveredDevicesFlow =
         showMockTransport
-            .flatMapLatest { showMock -> getDiscoveredDevicesUseCase.invoke(showMock) }
+            .flatMapLatest { showMock -> getDiscoveredDevicesUseCase.invoke(showMock, gatedResolvedList) }
             .stateInWhileSubscribed(initialValue = null)
+
+    fun startNetworkScan() {
+        _isNetworkScanning.value = true
+    }
+
+    fun stopNetworkScan() {
+        _isNetworkScanning.value = false
+    }
 
     /** A combined list of bonded and scanned BLE devices for the UI. */
     val bleDevicesForUi: StateFlow<List<DeviceListEntry>> =
@@ -136,7 +160,7 @@ open class ScannerViewModel(
             .distinctUntilChanged()
             .stateInWhileSubscribed(initialValue = emptyList())
 
-    /** UI StateFlow for discovered TCP devices (NSD). */
+    /** UI StateFlow for discovered TCP devices (NSD), only populated during an active network scan. */
     val discoveredTcpDevicesForUi: StateFlow<List<DeviceListEntry>> =
         discoveredDevicesFlow
             .map { it?.discoveredTcpDevices ?: emptyList() }
@@ -160,8 +184,6 @@ open class ScannerViewModel(
             .map { it ?: NO_DEVICE_SELECTED }
             .stateInWhileSubscribed(initialValue = selectedAddressFlow.value ?: NO_DEVICE_SELECTED)
 
-    val supportedDeviceTypes: List<org.meshtastic.core.model.DeviceType> = radioInterfaceService.supportedDeviceTypes
-
     init {
         serviceRepository.connectionProgress.onEach { _errorText.value = it }.launchIn(viewModelScope)
         Logger.d { "ScannerViewModel created" }
@@ -169,6 +191,8 @@ open class ScannerViewModel(
 
     override fun onCleared() {
         super.onCleared()
+        stopBleScan()
+        stopNetworkScan()
         Logger.d { "ScannerViewModel cleared" }
     }
 
