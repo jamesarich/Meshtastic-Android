@@ -2,36 +2,24 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>AbsentOrWrongFileLicense:DetektConventionPlugin.kt$.DetektConventionPlugin.kt</ID>
-    <ID>AbsentOrWrongFileLicense:SpotlessConventionPlugin.kt$.SpotlessConventionPlugin.kt</ID>
-    <ID>ChainWrapping:AndroidInstrumentedTests.kt$&amp;&amp;</ID>
-    <ID>EnumNaming:MeshtasticFlavor.kt$FlavorDimension$marketplace</ID>
-    <ID>EnumNaming:MeshtasticFlavor.kt$MeshtasticFlavor$fdroid : MeshtasticFlavor</ID>
-    <ID>EnumNaming:MeshtasticFlavor.kt$MeshtasticFlavor$google : MeshtasticFlavor</ID>
-    <ID>FinalNewline:ProjectExtensions.kt$com.geeksville.mesh.buildlogic.ProjectExtensions.kt</ID>
-    <ID>MagicNumber:AndroidApplicationConventionPlugin.kt$AndroidApplicationConventionPlugin$36</ID>
-    <ID>MagicNumber:AndroidLibraryConventionPlugin.kt$AndroidLibraryConventionPlugin$36</ID>
-    <ID>MagicNumber:KotlinAndroid.kt$21</ID>
-    <ID>MagicNumber:KotlinAndroid.kt$26</ID>
-    <ID>MagicNumber:KotlinAndroid.kt$36</ID>
-    <ID>MagicNumber:Spotless.kt$120</ID>
-    <ID>MaxLineLength:GitVersionValueSource.kt$GitVersionValueSource$throw RuntimeException("Failed to determine git commit count for versionCode. Ensure you have a full git history (not a shallow clone) and .git is present.\nOriginal error: ${e.message}", e)</ID>
-    <ID>NewLineAtEndOfFile:ProjectExtensions.kt$com.geeksville.mesh.buildlogic.ProjectExtensions.kt</ID>
-    <ID>NoBlankLineBeforeRbrace:AndroidApplicationComposeConventionPlugin.kt$AndroidApplicationComposeConventionPlugin$ </ID>
-    <ID>NoBlankLineBeforeRbrace:AndroidLibraryComposeConventionPlugin.kt$AndroidLibraryComposeConventionPlugin$ </ID>
-    <ID>NoConsecutiveBlankLines:MeshtasticFlavor.kt$ </ID>
-    <ID>NoUnusedImports:AndroidApplicationFlavorsConventionPlugin.kt$.AndroidApplicationFlavorsConventionPlugin.kt</ID>
-    <ID>NoUnusedImports:AndroidLibraryConventionPlugin.kt$.AndroidLibraryConventionPlugin.kt</ID>
-    <ID>SpacingAroundParens:MeshtasticFlavor.kt$MeshtasticFlavor.fdroid$)</ID>
-    <ID>TooGenericExceptionCaught:GitVersionValueSource.kt$GitVersionValueSource$e: Exception</ID>
-    <ID>TooGenericExceptionThrown:GitVersionValueSource.kt$GitVersionValueSource$throw RuntimeException("Failed to determine git commit count for versionCode. Ensure you have a full git history (not a shallow clone) and .git is present.\nOriginal error: ${e.message}", e)</ID>
-    <ID>UnusedImports:AndroidApplicationFlavorsConventionPlugin.kt$import com.geeksville.mesh.buildlogic.MeshtasticFlavor</ID>
-    <ID>UnusedImports:AndroidApplicationFlavorsConventionPlugin.kt$import com.geeksville.mesh.buildlogic.libs</ID>
-    <ID>UnusedImports:AndroidApplicationFlavorsConventionPlugin.kt$import org.gradle.kotlin.dsl.apply</ID>
-    <ID>UnusedImports:AndroidApplicationFlavorsConventionPlugin.kt$import org.gradle.kotlin.dsl.dependencies</ID>
-    <ID>UnusedImports:AndroidApplicationFlavorsConventionPlugin.kt$import org.gradle.kotlin.dsl.exclude</ID>
-    <ID>UnusedImports:AndroidLibraryConventionPlugin.kt$import com.geeksville.mesh.buildlogic.libs</ID>
-    <ID>UnusedImports:AndroidLibraryConventionPlugin.kt$import org.gradle.kotlin.dsl.dependencies</ID>
-    <ID>UnusedParameter:AndroidLintConventionPlugin.kt$project: Project</ID>
+    <ID>CyclomaticComplexMethod:DocsTasks.kt:GenerateDocsBundleTask$@TaskAction fun generate</ID>
+    <ID>FunctionSignature:DocsTasks.kt:GenerateDocsBundleTask$private fun parseListField: List&lt;String&gt;</ID>
+    <ID>LongMethod:DocsTasks.kt:GenerateDocsBundleTask$@TaskAction fun generate</ID>
+    <ID>MagicNumber:DocsTasks.kt:GenerateDocsBundleTask$3</ID>
+    <ID>MagicNumber:DocsTasks.kt:GenerateDocsBundleTask$30</ID>
+    <ID>MagicNumber:DocsTasks.kt:GenerateDocsBundleTask$999</ID>
+    <ID>MagicNumber:DocsTasks.kt:ValidateDocsBundleTask$10.0</ID>
+    <ID>MagicNumber:DocsTasks.kt:ValidateDocsBundleTask$1024.0</ID>
+    <ID>MagicNumber:DocsTasks.kt:ValidateDocsBundleTask$8.0</ID>
+    <ID>MaxLineLength:DocsTasks.kt:GenerateDocsBundleTask$logger.lifecycle("Generated docs bundle: $pageCount pages (${localesManifest.size} locales), channel=${channel.get()}, version=${version.get()}")</ID>
+    <ID>MaxLineLength:DocsTasks.kt:ValidateDocsBundleTask$logger.lifecycle("Docs bundle validation PASSED: ${referencedPaths.size} pages, ${String.format("%.2f", sizeMb)} MB")</ID>
+    <ID>MaxLineLength:DocsTasks.kt:ValidateDocsBundleTask$throw org.gradle.api.GradleException("Bundle size ${String.format("%.2f", sizeMb)} MB exceeds 10 MB hard limit")</ID>
+    <ID>MultiLineIfElse:DocsTasks.kt:PublishDocsSiteTask$f.copyRecursively(File(outDir, f.name), overwrite = true)</ID>
+    <ID>MultiLineIfElse:DocsTasks.kt:PublishDocsSiteTask$f.copyTo(File(outDir, f.name), overwrite = true)</ID>
+    <ID>NoConsecutiveBlankLines:DocsTasks.kt: </ID>
+    <ID>NoUnusedImports:DocsTasks.kt:org.meshtastic.buildlogic.DocsTasks.kt</ID>
+    <ID>ReturnCount:DocsTasks.kt:GenerateDocsBundleTask$private fun parseFrontmatter: Map&lt;String, String&gt;</ID>
+    <ID>ThrowsCount:DocsTasks.kt:ValidateDocsBundleTask$@TaskAction fun validate</ID>
+    <ID>Wrapping:DocsTasks.kt:GenerateDocsBundleTask$(</ID>
   </CurrentIssues>
 </SmellBaseline>

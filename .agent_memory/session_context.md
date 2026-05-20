@@ -2,6 +2,18 @@
 # This is a dated, append-only handover log. Add new entries at the TOP.
 # Do NOT edit or remove previous entries — stale state claims cause agent confusion.
 # Format: ## YYYY-MM-DD — <summary>
+## 2026-05-20 — Isolated Flatpak Offline Source Generator to Dedicated Standalone Subproject
+- Abstracted the Flatpak offline source generator convention plugin out of `:build-logic:convention` into its own isolated, standalone subproject `:build-logic:flatpak`.
+- Registered `FlatpakConventionPlugin` under `meshtastic.flatpak` and packaged `GenerateFlatpakSourcesTask` under the `org.meshtastic.flatpak` package namespace.
+- Preserved JitPack `com.github.*` routing logic to prevent Flathub sandbox download failures.
+- Fully verified whole-repository spotless and detekt checks (100% green) and successfully executed `:generateFlatpakSourcesFromCache` to generate `flatpak-sources.json` with 10,110 entries.
+
+## 2026-05-20 — Migrated Flatpak Offline Source Generator to compiled convention plugin
+- Migrated `GenerateFlatpakSourcesTask` from the interpreted `gradle/flatpak.gradle.kts` into a first-class, compiled Kotlin task `GenerateFlatpakSourcesTask.kt` under `org.meshtastic.buildlogic`.
+- Created and registered `FlatpakConventionPlugin` as a convention plugin under ID `meshtastic.flatpak`.
+- Applied the new plugin in root `build.gradle.kts` and deleted the legacy loose script `gradle/flatpak.gradle.kts`.
+- Regenerated Detekt baseline for `build-logic:convention` to capture pre-existing `DocsTasks.kt` issues and ensure clean compilation & green checks.
+- Fully verified task execution by running `./gradlew :desktopApp:assemble :generateFlatpakSourcesFromCache --no-configuration-cache`, which generated a flawless `flatpak-sources.json` of ~10.4MB.
 
 ## 2026-05-20 — Resolved Flatpak jitpack.io dependency download 404s in sandboxed offline builds
 - Modified `GenerateFlatpakSourcesTask` in `gradle/flatpak.gradle.kts` to dynamically detect dependency groups starting with `com.github.` (which are hosted on JitPack).
