@@ -110,6 +110,7 @@ include(
     ":feature:messaging",
     ":feature:connections",
     ":feature:map",
+    ":feature:map-maplibre",
     ":feature:node",
     ":feature:settings",
     ":feature:discovery",
